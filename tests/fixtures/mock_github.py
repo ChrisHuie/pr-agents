@@ -5,32 +5,36 @@ These objects provide realistic data structures without making network requests,
 based on real Prebid organization PR patterns.
 """
 
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Optional
 
 
+@dataclass
 class MockUser:
     """Mock GitHub user object."""
 
-    def __init__(self, login: str, user_type: str = "User"):
-        self.login = login
-        self.type = user_type
-        self.id = hash(login) % 1000000  # Fake but consistent ID
+    login: str
+    type: str = "User"
+    id: int = field(init=False)
+
+    def __post_init__(self):
+        self.id = hash(self.login) % 1000000  # Fake but consistent ID
 
 
+@dataclass
 class MockLabel:
     """Mock GitHub label object."""
 
-    def __init__(self, name: str, color: str = "0366d6"):
-        self.name = name
-        self.color = color
+    name: str
+    color: str = "0366d6"
 
 
+@dataclass
 class MockMilestone:
     """Mock GitHub milestone object."""
 
-    def __init__(self, title: str):
-        self.title = title
+    title: str
 
 
 class MockFile:
@@ -82,7 +86,7 @@ class MockFile:
 +    }
  }"""
         else:
-            return f"@@ -1,3 +1,4 @@\n // {self.filename}\n+// Updated: {datetime.now().isoformat()}"
+            return f"@@ -1,3 +1,4 @@\n // {self.filename}\n+// Updated version"
 
 
 class MockReview:
@@ -220,11 +224,8 @@ class MockPullRequest:
 
         if head is None:
             # Create head branch with same repo as base
-            if isinstance(self.base, MockBranch):
-                head_repo = self.base.repo
-            else:
-                # base is a MockRepository
-                head_repo = self.base
+            # self.base is always a MockBranch after initialization above
+            head_repo = self.base.repo
             self.head = MockBranch("feature-branch", "def456ghi", head_repo)
         else:
             self.head = head

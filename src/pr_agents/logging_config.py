@@ -166,7 +166,7 @@ def _sanitize_and_truncate_data(data: Any, data_type: str = "DATA") -> str:
     """
     try:
         # Convert to string representation
-        if isinstance(data, (dict, list)):
+        if isinstance(data, dict | list):
             data_str = json.dumps(data, indent=None, separators=(",", ":"))
         else:
             data_str = str(data)

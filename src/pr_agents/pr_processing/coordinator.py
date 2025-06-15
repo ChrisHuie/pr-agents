@@ -12,7 +12,6 @@ from loguru import logger
 
 from ..logging_config import (
     log_data_flow,
-    log_error_with_context,
     log_processing_step,
 )
 from .extractors import (
