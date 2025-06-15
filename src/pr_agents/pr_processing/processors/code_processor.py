@@ -6,6 +6,9 @@ import re
 from dataclasses import asdict
 from typing import Any
 
+from loguru import logger
+
+from ...logging_config import log_data_flow, log_error_with_context, log_processing_step
 from ..analysis_models import (
     ChangeStats,
     CodeAnalysisResult,
@@ -26,18 +29,52 @@ class CodeProcessor(BaseProcessor):
 
     def process(self, component_data: dict[str, Any]) -> ProcessingResult:
         """Analyze code changes in isolation."""
+        logger.info("🔍 Starting code analysis")
+
         try:
             # Extract file diffs
             file_diffs = component_data.get("file_diffs", [])
-
-            # Create analysis result using dataclasses
-            analysis_result = CodeAnalysisResult(
-                change_stats=self._analyze_change_stats(component_data),
-                file_analysis=self._analyze_files(file_diffs),
-                pattern_analysis=self._analyze_code_patterns(file_diffs),
-                risk_assessment=self._assess_risk(component_data, file_diffs),
+            log_data_flow(
+                "Code data received", f"{len(file_diffs)} file diffs", "input"
             )
 
+            # Create analysis result using dataclasses
+            log_processing_step("Analyzing change statistics")
+            change_stats = self._analyze_change_stats(component_data)
+            log_data_flow(
+                "Change stats", f"{change_stats.total_changes} total changes", "stats"
+            )
+
+            log_processing_step("Analyzing files")
+            file_analysis = self._analyze_files(file_diffs)
+            log_data_flow(
+                "File analysis", f"{len(file_analysis.file_types)} file types", "files"
+            )
+
+            log_processing_step("Analyzing code patterns")
+            pattern_analysis = self._analyze_code_patterns(file_diffs)
+            log_data_flow(
+                "Patterns found",
+                f"Tests: {pattern_analysis.has_tests}, Config: {pattern_analysis.has_config_changes}",
+                "patterns",
+            )
+
+            log_processing_step("Assessing risk")
+            risk_assessment = self._assess_risk(component_data, file_diffs)
+            log_data_flow(
+                "Risk assessment",
+                f"Level: {risk_assessment.risk_level}, Score: {risk_assessment.risk_score}",
+                "risk",
+            )
+
+            analysis_result = CodeAnalysisResult(
+                change_stats=change_stats,
+                file_analysis=file_analysis,
+                pattern_analysis=pattern_analysis,
+                risk_assessment=risk_assessment,
+            )
+
+            logger.success("✅ Code analysis complete")
             return ProcessingResult(
                 component="code_changes",
                 success=True,
@@ -45,6 +82,7 @@ class CodeProcessor(BaseProcessor):
             )
 
         except Exception as e:
+            log_error_with_context(e, "code processing")
             return ProcessingResult(
                 component="code_changes",
                 success=False,

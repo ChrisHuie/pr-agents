@@ -30,3 +30,34 @@ If any of these commands fail, fix the issues before considering the task comple
 - Never commit without running the quality checks above
 - Write clear, descriptive commit messages
 - Only commit when explicitly asked by the user
+
+## Logging Standards
+- Use loguru for all logging throughout the codebase
+- Import logging utilities from `src.pr_agents.logging_config`
+- Follow established logging patterns:
+  - Use `log_processing_step()` for major operation milestones
+  - Use `log_data_flow()` to track data transformations
+  - Use `log_api_call()` for external API interactions
+  - Use `log_error_with_context()` for error handling
+- Sensitive data is automatically sanitized in logs
+- Respect environment-aware logging (dev/staging/prod)
+
+## Code Documentation Standards
+All code must be consistently documented inline:
+
+### Required for All Functions/Classes
+- **Docstrings**: Follow existing project style with clear purpose, Args, Returns
+- **Type hints**: Complete type annotations for all function parameters and returns
+- **Consistent style**: Match existing docstring format in the codebase
+
+### README Updates
+Update README.md only when changes affect:
+- Installation, setup, or environment configuration
+- User-facing features or API usage
+- New environment variables or configuration options
+- Core functionality that users need to understand
+
+### Documentation Consistency
+- Follow existing patterns and style in the codebase
+- Keep docstrings concise but complete
+- Include practical examples only when they clarify complex usage

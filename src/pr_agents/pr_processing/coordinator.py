@@ -8,7 +8,13 @@ from urllib.parse import urlparse
 
 from github import Github
 from github.PullRequest import PullRequest
+from loguru import logger
 
+from ..logging_config import (
+    log_data_flow,
+    log_error_with_context,
+    log_processing_step,
+)
 from .extractors import (
     BaseExtractor,
     CodeChangesExtractor,
@@ -29,7 +35,9 @@ class PRCoordinator:
     """
 
     def __init__(self, github_token: str) -> None:
+        logger.info("🔧 Initializing PR Coordinator")
         self.github_client = Github(github_token)
+        log_processing_step("GitHub client initialized")
 
         # Initialize extractors
         self._extractors: dict[str, BaseExtractor] = {
@@ -38,6 +46,9 @@ class PRCoordinator:
             "repository": RepositoryExtractor(self.github_client),
             "reviews": ReviewsExtractor(self.github_client),
         }
+        log_processing_step(
+            "Extractors initialized", f"Available: {list(self._extractors.keys())}"
+        )
 
         # Initialize processors
         self._processors: dict[str, BaseProcessor] = {
@@ -45,6 +56,10 @@ class PRCoordinator:
             "code_changes": CodeProcessor(),
             "repository": RepoProcessor(),
         }
+        log_processing_step(
+            "Processors initialized", f"Available: {list(self._processors.keys())}"
+        )
+        logger.success("✅ PR Coordinator ready")
 
     def extract_pr_components(
         self, pr_url: str, components: set[str] | None = None
@@ -60,43 +75,86 @@ class PRCoordinator:
         Returns:
             PRData with requested components populated
         """
+        # Bind PR URL to logger context for all operations in this scope
+        bound_logger = logger.bind(pr_url=pr_url)
+        bound_logger.info("📥 Starting component extraction")
+
         if components is None:
             components = {"metadata", "code_changes", "repository", "reviews"}
+
+        log_data_flow("Requested components", components, "extraction input")
 
         # Validate components
         valid_components = set(self._extractors.keys())
         invalid_components = components - valid_components
         if invalid_components:
-            raise ValueError(f"Invalid components: {invalid_components}")
+            error_msg = f"Invalid components: {invalid_components}"
+            bound_logger.error(f"💥 {error_msg}")
+            raise ValueError(error_msg)
 
         # Parse PR URL and get PR object
+        log_processing_step("Parsing PR URL")
         pr = self._get_pr_from_url(pr_url)
         if not pr:
-            raise ValueError(f"Could not retrieve PR from URL: {pr_url}")
+            error_msg = f"Could not retrieve PR from URL: {pr_url}"
+            bound_logger.error(f"💥 {error_msg}")
+            raise ValueError(error_msg)
+
+        bound_logger.info(f"✅ Retrieved PR #{pr.number}: {pr.title}")
 
         # Extract components in isolation
         pr_data = PRData()
+        extracted_count = 0
 
         if "metadata" in components:
+            log_processing_step("Extracting metadata")
             metadata_data = self._extractors["metadata"].extract(pr)
             if metadata_data:
                 pr_data.metadata = metadata_data
+                extracted_count += 1
+                log_data_flow(
+                    "Metadata extracted", f"{len(metadata_data)} fields", "metadata"
+                )
 
         if "code_changes" in components:
+            log_processing_step("Extracting code changes")
             code_data = self._extractors["code_changes"].extract(pr)
             if code_data:
                 pr_data.code_changes = code_data
+                extracted_count += 1
+                log_data_flow(
+                    "Code changes extracted",
+                    f"{code_data.get('changed_files', 0)} files",
+                    "code_changes",
+                )
 
         if "repository" in components:
+            log_processing_step("Extracting repository info")
             repo_data = self._extractors["repository"].extract(pr)
             if repo_data:
                 pr_data.repository_info = repo_data
+                extracted_count += 1
+                log_data_flow(
+                    "Repository info extracted",
+                    repo_data.get("name", "unknown"),
+                    "repository",
+                )
 
         if "reviews" in components:
+            log_processing_step("Extracting reviews")
             review_data = self._extractors["reviews"].extract(pr)
             if review_data:
                 pr_data.review_data = review_data
+                extracted_count += 1
+                log_data_flow(
+                    "Reviews extracted",
+                    f"{len(review_data.get('reviews', []))} reviews",
+                    "reviews",
+                )
 
+        bound_logger.success(
+            f"🎯 Extraction complete: {extracted_count}/{len(components)} components"
+        )
         return pr_data
 
     def process_components(
@@ -168,11 +226,17 @@ class PRCoordinator:
         Returns:
             Dictionary with extracted data and processing results
         """
+        # Bind PR URL context for the entire analysis pipeline
+        bound_logger = logger.bind(pr_url=pr_url)
+        bound_logger.info("🔬 Starting complete PR analysis")
+
         # Extract components
         pr_data = self.extract_pr_components(pr_url, extract_components)
 
         # Process components
         processing_results = self.process_components(pr_data, run_processors)
+
+        bound_logger.success("🏁 PR analysis pipeline complete")
 
         return {
             "pr_url": pr_url,
@@ -191,6 +255,7 @@ class PRCoordinator:
             path_parts = parsed.path.strip("/").split("/")
 
             if len(path_parts) < 4 or path_parts[2] != "pull":
+                logger.debug(f"Invalid PR URL format: {pr_url}")
                 return None
 
             owner = path_parts[0]
@@ -200,7 +265,13 @@ class PRCoordinator:
             repo = self.github_client.get_repo(f"{owner}/{repo_name}")
             return repo.get_pull(pr_number)
 
-        except Exception:
+        except ValueError as e:
+            logger.debug(f"Failed to parse PR number from URL {pr_url}: {e}")
+            return None
+        except Exception as e:
+            logger.debug(
+                f"Failed to retrieve PR from {pr_url}: {type(e).__name__}: {e}"
+            )
             return None
 
     def _get_component_data(
