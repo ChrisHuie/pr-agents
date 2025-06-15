@@ -132,6 +132,32 @@ uv install  # or pip install -e .
 echo "GITHUB_TOKEN=your_github_token_here" > .env
 ```
 
+### Logging Configuration
+
+Control logging behavior with environment variables:
+
+```bash
+# Development (default) - Verbose logging with function details
+python main.py
+
+# Production - Minimal logging for performance
+PR_AGENTS_ENV=production python main.py
+
+# Custom configuration
+export LOG_LEVEL=DEBUG
+export LOG_SHOW_FUNCTIONS=false
+export LOG_FILE=/tmp/pr-agents.log
+python main.py
+```
+
+| Variable | Default | Options | Description |
+|----------|---------|---------|-------------|
+| `PR_AGENTS_ENV` | `development` | `development`, `staging`, `production` | Environment type |
+| `LOG_LEVEL` | Environment-dependent | `DEBUG`, `INFO`, `WARNING`, `ERROR` | Logging level |
+| `LOG_SHOW_FUNCTIONS` | Environment-dependent | `true`, `false` | Show function names |
+| `LOG_SHOW_DATA_FLOW` | Environment-dependent | `true`, `false` | Show data flow details |
+| `LOG_FILE` | None | Any file path | Optional log file output |
+
 ### Basic Usage
 
 ```python

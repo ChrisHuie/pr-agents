@@ -5,7 +5,6 @@ Each scenario represents common PR types found across Prebid repositories,
 providing comprehensive test coverage for different development patterns.
 """
 
-
 from .mock_github import (
     MockBranch,
     MockComment,
