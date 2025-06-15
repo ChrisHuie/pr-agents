@@ -31,6 +31,9 @@ dev = [
 [tool.ruff]
 line-length = 88
 target-version = "py313"
+exclude = [
+    "tests/fixtures/prebid_scenarios.py",  # Contains intentionally misformatted test data
+]
 
 [tool.ruff.lint]
 select = [
@@ -66,5 +69,7 @@ extend-exclude = '''
   | \.venv
   | build
   | dist
+  # test fixtures with intentionally misformatted data
+  | tests/fixtures/prebid_scenarios\.py
 )/
 '''
