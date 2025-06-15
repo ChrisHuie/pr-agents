@@ -18,6 +18,7 @@ import os
 import pytest
 
 from src.pr_agents.pr_processing import PRCoordinator
+from tests.utils import get_prebid_test_prs, run_live_integration_tests
 
 # Mark all tests in this module as requiring live network access
 pytestmark = pytest.mark.live
@@ -38,12 +39,10 @@ def prebid_test_prs():
     """
     Known good Prebid PRs for testing (use closed/merged PRs to avoid disruption).
 
-    IMPORTANT: These URLs are placeholders and should be updated with real merged PRs.
+    Returns the standard set of test PRs defined in tests.utils module.
 
-    To find real PRs to use:
-        gh pr list --repo prebid/Prebid.js --state merged --limit 10
-        gh pr list --repo prebid/prebid-server --state merged --limit 10
-        gh pr list --repo prebid/prebid.github.io --state merged --limit 10
+    To update these URLs with real merged PRs, see tests.utils.get_prebid_test_prs()
+    and use the GitHub CLI commands documented there.
 
     Choose PRs that are:
     - Merged (stable, won't change)
@@ -51,12 +50,7 @@ def prebid_test_prs():
     - Have good metadata (title, description, labels)
     - Representative of different change types
     """
-    return {
-        # TODO: Replace with real merged PRs from Prebid organization
-        "small_js_feature": "https://github.com/prebid/Prebid.js/pull/11000",  # Small feature PR
-        "medium_server_fix": "https://github.com/prebid/prebid-server/pull/3200",  # Medium bugfix
-        "docs_update": "https://github.com/prebid/prebid.github.io/pull/4800",  # Documentation PR
-    }
+    return get_prebid_test_prs()
 
 
 class TestLiveIntegration:
@@ -192,75 +186,8 @@ class TestLiveIntegration:
                     assert result["processing_time_ms"] > 0
 
 
-# Helper functions for maintaining live tests
-
-
-def verify_pr_urls():
-    """
-    Helper function to verify that test PR URLs are still valid.
-
-    Run this periodically to ensure test PRs haven't been deleted.
-    """
-    import requests
-
-    @pytest.fixture
-    def test_prs():
-        return {
-            "small_js_feature": "https://github.com/prebid/Prebid.js/pull/11000",
-            "medium_server_fix": "https://github.com/prebid/prebid-server/pull/3200",
-            "docs_update": "https://github.com/prebid/prebid.github.io/pull/4800",
-        }
-
-    fixture = test_prs()
-    for pr_type, url in fixture.items():
-        # Convert GitHub URL to API URL
-        api_url = url.replace("github.com", "api.github.com/repos").replace(
-            "/pull/", "/pulls/"
-        )
-
-        try:
-            response = requests.get(api_url, timeout=10)
-            if response.status_code == 200:
-                pr_data = response.json()
-                print(f"✅ {pr_type}: {url} - {pr_data['title']} ({pr_data['state']})")
-            else:
-                print(f"❌ {pr_type}: {url} - HTTP {response.status_code}")
-        except Exception as e:
-            print(f"❌ {pr_type}: {url} - Error: {e}")
-
-
-def run_live_tests():
-    """
-    Run live integration tests manually.
-
-    Usage:
-        python -m pytest tests/integration/test_live_integration.py -m live -v
-
-    Or programmatically:
-        from tests.integration.test_live_integration import run_live_tests
-        run_live_tests()
-    """
-    import subprocess
-    import sys
-
-    cmd = [
-        sys.executable,
-        "-m",
-        "pytest",
-        "tests/integration/test_live_integration.py",
-        "-m",
-        "live",
-        "-v",
-    ]
-
-    print("Running live integration tests...")
-    print("Note: These tests require GITHUB_TOKEN environment variable")
-    print("Command:", " ".join(cmd))
-
-    result = subprocess.run(cmd)
-    return result.returncode == 0
-
-
 if __name__ == "__main__":
     # Allow running this file directly for development
-    run_live_tests()
+    success = run_live_integration_tests()
+    if not success:
+        exit(1)
