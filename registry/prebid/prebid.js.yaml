@@ -1,0 +1,224 @@
+repo: "https://github.com/prebid/Prebid.js"
+
+structure:
+
+  source:
+    "Creative Renderers": creative/++
+    "Feature Flags":
+      - features.json
+    Libraries:
+      - libraries/++
+      - libraries/
+        - analyticsAdapter/
+        - boundingClientRect/
+        - categoryTranslationMapping/
+        - chunk/
+        - cmp/
+        - consentManagement/
+        - creative-renderer-dispaly/
+        - creative-renderer-native/
+        - currencyUtils/
+        - dfpUtils/
+        - domainOverrideToRootDomain/
+        - fpdUtils/
+        - getOrigin/
+        - gptUtils/
+        - greedy/
+        - htmlEscape
+        - interpretResponseUtils/
+        - keywords/
+        - mspa/
+        - navigatorData/
+        - objectGuard/
+        - ortb2.5StrictTranslator/
+        - ortb2.5Translator/
+        - ortb2Utils/
+        - ortb2Converter/
+        - paapiTools/
+        - pageInfosUtils
+        - pbsExtensions
+        - percentInView/
+        - schainSerializer/
+        - sizeUtils/
+        - timeToFirstBytes/
+        - timeoutQueue/
+        - transformParamsUtils
+        - uid1Eids/
+        - uid2Eids/
+        - uid2IdSystemShared/
+        - urlUtils/
+        - userAgentUtils/
+        - userSyncUtils/
+        - vastTrackers/
+        - video/
+        - viewport/
+        - weakStore/
+        - xmlUtils/
+    src: src/++
+    "Core Module":
+      - modules/++ dir
+      - modules/
+        - bidResponseFilter/++
+        - dataControllerModule/++
+        - fpdModule/++
+        - multibid/++
+        - prebidServerBidAdapter/++
+        - previousAuctionInfo/++
+    "Core Functionality":
+      - modules/++ dir
+      - modules/
+        - prebidServerBidAdapter/
+        - bidResponseFilter/
+        - dataControllerModule/
+        - adpod.js
+        - allowActivities.js
+        - bidViewability.js
+        - bidViewabilityIO.js
+        - categoryTranslation.js
+        - consentManagementGpp.js
+        - consentManagementTcf.js
+        - consentManagementUsp.js
+        - currency.js
+        - dchain.js
+        - dfpAdServerVideo.js
+        - dfpAdpod.js
+        - dsaControl.js
+        - express.js
+        - gppControl_usnat.js
+        - gppControl_usstates.js
+        - gptPreAuction.js
+        - idImportLibrary.js
+        - instreamTracking.js
+        - nativeRendering.js
+        - paapi.js
+        - paapiForGpt.js
+        - priceFloors.js
+        - schain.js
+        - sizeMapping.js
+        - sizeMappingV2.js
+        - tcfControl.js
+        - topicsFpdModule.js
+        - topLevelPaapi.js
+
+  modules:
+    "Bid Adapter":
+      - modules/++ endsWith('BidAdapter' , file)
+      - modules/++ endsWith('Adapter' , file)
+    "Analytics Adapter":
+      - modules/++ endsWith('AnalyticsAdapter' , file)
+    "ID Module":
+      - modules/++ endsWith('IdSystem' , file)
+    "RTD Module":
+      - modules/++ endsWith('RtdProvider' , file)
+    "Video Module":
+      - modules/++ includes('Video' , file , i)
+    "Other Module":
+      - modules/++ files('.js')
+
+  docs:
+    "Module Docs":
+      - modules/++ files('.md')
+    "Agents Docs":
+      - AGENTS.md
+      - CLAUDE.md
+    "Prebid Docs":
+      - CONTRIBUTING.md
+      - PR_REVIEW.md
+      - README.md
+    "PMC Docs":
+      - /++ files('.md')
+      - PREBID_VERSIONING_DEPRECATION.md
+      - RELEASE_SCHEDULE.md
+      - governance.md
+
+  integration:
+    Examples:
+      - integrationExamples/++
+
+  submodules:
+    "Submodules File": modules/.submodules.json
+
+  testing:
+    "Module Unit Tests":
+      - test/spec/modules/++
+    "Core Testing":
+      - test/spec/++
+    "Libraries Testing":
+      - test/spec/libraries/++
+    "Prebid Server Testing":
+      - modules/s2sTesting,js
+    "e2e Testing":
+      - test/++
+        - fake-server/++
+        - fixtures/++
+        - helpers/++
+        - mocks/++
+        - pages/++
+        - pipeline_setup.js
+        - test_deps.js
+        - test_index.js
+        - spec/e2e/++
+      
+  dependencies:
+    - package.json
+    - package-lock.json
+
+  build:
+    "CI/CD": [ .circleci/++ ]
+    Github: [ .github/++ ]
+    Babel:
+      - .babelrc.js
+      - babelConfig.js
+      - bundle-template.txt
+    Wdio:
+      - wdio.conf.js
+      - wdio.local.conf.js
+      - wdio.shared.conf.js
+    Webpack:
+      - webpack.conf.js
+      - webpack.creative.js
+      - webpack.debugging.js
+
+  dev:
+    Environment: [ .devcontainer/ , .editorconfig. ]
+    Linting:
+      - eslint.config.js
+    Gulp:
+      - gulpHelpers.js
+      - gulpfile.js
+    Karma:
+      - karma.conf.maker.js
+      - karmaRunner.js
+    Other:
+      - .gitignore.
+      - .nvmrc
+    Browsers:
+      - browsers.json
+
+
+
+
+definitions:
+  - 
+    name:
+    description:
+    rules_class:
+    key:
+    scope: "per_file"
+    path:
+      change_type:
+      excludes:
+        - directory:
+          change_type:
+
+        - file:
+          change_type:
+
+      tags: []
+      - directory:
+        tags: []
+      - file:
+        tags: []
+
+
+rules:

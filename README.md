@@ -225,26 +225,63 @@ uv run black . && uv run ruff check . && uv run pytest
 - **Mock Data**: No external API calls in tests
 - **Component Isolation**: Verify no context bleeding between components
 
-## 📊 Analysis Capabilities
+## 📊 Data Extraction & Analysis Capabilities
 
-### Metadata Analysis
-- Title quality scoring and pattern detection
-- Description structure analysis  
-- Label categorization and completeness
-- Overall metadata quality assessment
+### 📋 **Metadata Details**
+- **title**: PR title text and quality analysis
+- **author**: Username of PR creator
+- **state**: Current status (open, closed, merged)
+- **pr_number**: Unique PR identifier
+- **labels**: Tags/categories applied to the PR
+- **assignees**: Users assigned to handle the PR
+- **milestone**: Project milestone association
+- **created_at/updated_at/merged_at**: Timestamp tracking
+- **url**: Direct link to the PR
+- **description**: Full PR description content and structure analysis
 
-### Code Analysis
-- Risk assessment based on change size and patterns
-- File type and modification analysis
-- Test coverage detection
-- Breaking change pattern recognition
-- Security-sensitive file detection
+### 🔧 **Code Changes Analysis**
+- **total_additions/deletions**: Line count statistics
+- **total_changes**: Combined modification count
+- **changed_files**: Number of files affected
+- **file_diffs**: Detailed patch content for each file
+- **base_sha/head_sha**: Git commit identifiers
+- **file_types**: Breakdown by extension (.js, .py, etc.)
+- **file_statuses**: Added, modified, deleted, or renamed files
+- **change_patterns**: Detection of tests, config changes, documentation
+- **risk_assessment**: Impact and complexity scoring
 
-### Repository Analysis  
-- Language composition and diversity
-- Branch naming convention analysis
-- Repository health scoring
-- Fork and contribution pattern analysis
+### 🏢 **Repository Information**
+- **name/full_name**: Repository identification
+- **owner**: Repository owner/organization
+- **is_private**: Public or private repository status  
+- **default_branch**: Main development branch
+- **language**: Primary programming language
+- **languages**: Complete language composition with percentages
+- **topics**: Repository tags and categorization
+- **base_branch/head_branch**: Source and target branch analysis
+- **fork_info**: Fork relationship data
+
+### 💬 **Review & Discussion Data**
+- **reviews**: Individual review objects with approval status
+- **comments**: Line-by-line review comments with file context
+- **requested_reviewers**: Users asked to review
+- **approved_by**: List of approving reviewers
+- **changes_requested_by**: Reviewers requesting modifications
+- **review_state**: APPROVED, CHANGES_REQUESTED, or COMMENTED
+- **comment_position**: Line numbers and file paths for comments
+
+### 🧠 **Computed Analysis Results**
+- **metadata_quality**: Scoring for title/description completeness
+- **title_analysis**: Length, word count, emoji usage, WIP status
+- **description_analysis**: Structure, sections, checklists, links
+- **label_analysis**: Categorization and completeness scoring
+- **change_stats**: Statistical analysis of modifications
+- **file_analysis**: File type distribution and size analysis
+- **pattern_analysis**: Test coverage, breaking changes, dependencies
+- **risk_level**: LOW/MEDIUM/HIGH based on change complexity
+- **repo_health**: Repository maintenance and quality indicators
+- **language_analysis**: Programming language diversity and distribution
+- **branch_analysis**: Naming conventions and merge patterns
 
 ## 🔒 Security & Privacy
 
