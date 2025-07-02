@@ -237,7 +237,7 @@ class TestPatternEvaluator:
         pattern = YAMLPattern(
             path_components=["modules"],
             pattern_type="endsWith",
-            pattern_value="BidAdapter",
+            pattern_value="BidAdapter.js",
         )
 
         matches = evaluator.evaluate_file(
@@ -383,14 +383,14 @@ class TestPRTaggerProcessor:
         # Setup mocks
         mock_registry_loader.return_value.get_repo_registry.return_value = mock_registry
         mock_registry_loader.return_value.parse_structure_patterns.return_value = [
-            YAMLPattern(["source", "modules"], "endsWith", "BidAdapter"),
+            YAMLPattern(["source", "modules"], "endsWith", "BidAdapter.js"),
             YAMLPattern(["source", "core"], "++", None),
             YAMLPattern(["testing", "unit"], "++", None),
             YAMLPattern(["docs"], "++", None),
         ]
 
         mock_repo_manager.return_value.get_repository.return_value = mock_repo_structure
-        mock_repo_manager.return_value.categorize_file.side_effect = [
+        mock_repo_manager.return_value.get_module_info.side_effect = [
             {
                 "categories": ["bid_adapter"],
                 "module_name": "rubicon",
