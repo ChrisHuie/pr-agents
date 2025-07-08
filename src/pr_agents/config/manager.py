@@ -7,6 +7,9 @@ import re
 from pathlib import Path
 from typing import Any
 
+from loguru import logger
+
+from .exceptions import ConfigurationLoadError
 from .loader import ConfigurationLoader
 from .models import (
     DetectionStrategy,
@@ -14,24 +17,32 @@ from .models import (
     RepositoryConfig,
     RepositoryStructure,
 )
+from .pattern_matcher import PatternMatcher
 
 
 class RepositoryStructureManager:
     """Manages repository structure configurations."""
 
-    def __init__(self, config_file: str = "config/repository_structures.json"):
-        self.loader = ConfigurationLoader(config_file)
+    def __init__(self, config_path: str = "config"):
+        self.loader = ConfigurationLoader(config_path)
         self.config: RepositoryConfig | None = None
+        self.pattern_matcher = PatternMatcher()
         self._load_config()
 
     def _load_config(self):
         """Load configuration from file."""
         try:
             self.config = self.loader.load_config()
+            logger.info(
+                f"Loaded {len(self.config.repositories)} repository configurations"
+            )
         except Exception as e:
-            # Log error and continue with empty config
-            print(f"Error loading repository config: {e}")
+            logger.error(f"Error loading repository config: {e}")
+            # Initialize with empty config but raise error
             self.config = RepositoryConfig()
+            raise ConfigurationLoadError(
+                f"Failed to load repository config: {e}"
+            ) from e
 
     def get_repository(self, repo_url: str) -> RepositoryStructure | None:
         """Get repository structure for a given URL."""

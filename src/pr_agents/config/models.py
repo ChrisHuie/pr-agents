@@ -120,50 +120,16 @@ class RepositoryStructure:
 
     def _version_matches(self, version: str, ver_config: VersionConfig) -> bool:
         """Check if a version matches a version configuration."""
+        # Import here to avoid circular dependency
+        from .version_utils import version_matches_range
+
         # Exact match
         if version == ver_config.version:
             return True
 
         # Version range check
         if ver_config.version_range:
-            # Simple version comparison - remove 'v' prefix and compare
-            def normalize_version(v: str) -> tuple:
-                # Convert "v10.5" to (10, 5)
-                v = v.lstrip("v")
-                parts = v.split(".")
-                return tuple(int(p) for p in parts if p.isdigit())
-
-            try:
-                normalized_version = normalize_version(version)
-
-                # Handle different range formats
-                if "," in ver_config.version_range:
-                    # Handle compound ranges like ">=9.0,<10.0"
-                    parts = ver_config.version_range.split(",")
-                    for part in parts:
-                        part = part.strip()
-                        if part.startswith(">="):
-                            min_version = part.replace(">=", "").strip()
-                            if normalized_version < normalize_version(min_version):
-                                return False
-                        elif part.startswith(">"):
-                            min_version = part.replace(">", "").strip()
-                            if normalized_version <= normalize_version(min_version):
-                                return False
-                        elif part.startswith("<="):
-                            max_version = part.replace("<=", "").strip()
-                            if normalized_version > normalize_version(max_version):
-                                return False
-                        elif part.startswith("<"):
-                            max_version = part.replace("<", "").strip()
-                            if normalized_version >= normalize_version(max_version):
-                                return False
-                    return True
-                elif ver_config.version_range.startswith(">="):
-                    min_version = ver_config.version_range.replace(">=", "").strip()
-                    return normalized_version >= normalize_version(min_version)
-            except (ValueError, AttributeError):
-                return False
+            return version_matches_range(version, ver_config.version_range)
 
         return False
 

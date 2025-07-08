@@ -10,8 +10,10 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "google-adk>=1.3.0",
+    "jsonschema>=4.23.0",
     "loguru>=0.7.3",
     "lxml>=5.4.0",
+    "packaging>=24.2",
     "pydantic>=2.11.7",
     "pygithub>=2.6.1",
     "typing-extensions>=4.14.0",

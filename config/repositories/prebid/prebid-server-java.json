@@ -1,0 +1,54 @@
+{
+  "$schema": "../../schema/repository.schema.json",
+  "repo_name": "prebid/prebid-server-java",
+  "repo_type": "prebid-server-java",
+  "description": "Prebid Server (Java) - Server-Side Header Bidding",
+  "extends": "../shared/prebid-base.json",
+  "detection_strategy": "directory_based",
+  "fetch_strategy": "directory_names",
+  "module_categories": {
+    "bid_adapter": {
+      "display_name": "Bid Adapters",
+      "paths": ["src/main/java/org/prebid/server/bidder/"],
+      "patterns": [
+        {
+          "pattern": "src/main/java/org/prebid/server/bidder/*",
+          "type": "directory"
+        }
+      ],
+      "detection_strategy": "directory_based"
+    },
+    "analytics_module": {
+      "display_name": "Analytics Modules",
+      "paths": ["src/main/java/org/prebid/server/analytics/"],
+      "patterns": [
+        {
+          "pattern": "src/main/java/org/prebid/server/analytics/*",
+          "type": "directory"
+        }
+      ],
+      "detection_strategy": "directory_based"
+    },
+    "general_module": {
+      "display_name": "General Modules",
+      "paths": ["src/main/java/org/prebid/server/hooks/modules/"],
+      "patterns": [
+        {
+          "pattern": "src/main/java/org/prebid/server/hooks/modules/*/*",
+          "type": "directory"
+        }
+      ],
+      "detection_strategy": "directory_based"
+    }
+  },
+  "paths": {
+    "core": [
+      "src/main/java/org/prebid/server/handler/",
+      "src/main/java/org/prebid/server/auction/",
+      "src/main/java/org/prebid/server/settings/"
+    ],
+    "test": ["src/test/"],
+    "docs": ["docs/"],
+    "exclude": ["target/", ".git/"]
+  }
+}
