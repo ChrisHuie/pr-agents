@@ -1,0 +1,56 @@
+{
+  "$schema": "../schema/repository.schema.json",
+  "description": "Base configuration for Prebid repository modules and adapters",
+  "module_categories": {
+    "bid_adapter": {
+      "display_name": "Bid Adapters",
+      "patterns": [
+        {
+          "pattern": "*BidAdapter.js",
+          "type": "suffix",
+          "name_extraction": "remove_suffix:BidAdapter"
+        }
+      ]
+    },
+    "analytics_adapter": {
+      "display_name": "Analytics Adapters",
+      "patterns": [
+        {
+          "pattern": "*AnalyticsAdapter.js",
+          "type": "suffix",
+          "name_extraction": "remove_suffix:AnalyticsAdapter"
+        }
+      ]
+    },
+    "rtd_module": {
+      "display_name": "Real-Time Data Modules",
+      "patterns": [
+        {
+          "pattern": "*RtdProvider.js",
+          "type": "suffix",
+          "name_extraction": "remove_suffix:RtdProvider"
+        }
+      ]
+    },
+    "id_module": {
+      "display_name": "Identity Modules",
+      "patterns": [
+        {
+          "pattern": "*IdSystem.js",
+          "type": "suffix",
+          "name_extraction": "remove_suffix:IdSystem"
+        }
+      ]
+    },
+    "video_module": {
+      "display_name": "Video Modules",
+      "patterns": [
+        {
+          "pattern": "*VideoProvider.js",
+          "type": "suffix",
+          "name_extraction": "remove_suffix:VideoProvider"
+        }
+      ]
+    }
+  }
+}

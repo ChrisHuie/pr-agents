@@ -1,0 +1,150 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Repository Configuration Schema",
+  "description": "Schema for validating individual repository configuration files",
+  "type": "object",
+  "required": ["repo_name", "repo_type", "module_categories"],
+  "properties": {
+    "repo_name": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9-]+/[a-zA-Z0-9-._]+$",
+      "description": "Repository name in format 'owner/repo'"
+    },
+    "repo_type": {
+      "type": "string",
+      "enum": ["prebid-js", "prebid-server-go", "prebid-server-java", "prebid-mobile-android", "prebid-mobile-ios", "prebid-docs"],
+      "description": "Type of the repository"
+    },
+    "description": {
+      "type": "string",
+      "description": "Human-readable description of the repository"
+    },
+    "extends": {
+      "type": "string",
+      "description": "Path to base configuration to inherit from"
+    },
+    "detection_strategy": {
+      "type": "string",
+      "enum": ["filename_pattern", "directory_based", "metadata_file", "hybrid"],
+      "default": "filename_pattern"
+    },
+    "fetch_strategy": {
+      "type": "string",
+      "enum": ["full_content", "filenames_only", "directory_names"],
+      "default": "filenames_only"
+    },
+    "module_categories": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/definitions/moduleCategory"
+      }
+    },
+    "version_overrides": {
+      "type": "object",
+      "description": "Version-specific overrides",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "module_categories": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/definitions/moduleCategory"
+            }
+          }
+        }
+      }
+    },
+    "paths": {
+      "type": "object",
+      "properties": {
+        "core": {"$ref": "#/definitions/pathArray"},
+        "test": {"$ref": "#/definitions/pathArray"},
+        "docs": {"$ref": "#/definitions/pathArray"},
+        "exclude": {"$ref": "#/definitions/pathArray"}
+      }
+    },
+    "relationships": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/relationship"
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Additional repository-specific metadata"
+    }
+  },
+  "definitions": {
+    "moduleCategory": {
+      "type": "object",
+      "required": ["display_name", "patterns"],
+      "properties": {
+        "display_name": {
+          "type": "string"
+        },
+        "paths": {
+          "$ref": "#/definitions/pathArray"
+        },
+        "patterns": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/pattern"
+          },
+          "minItems": 1
+        },
+        "detection_strategy": {
+          "type": "string",
+          "enum": ["filename_pattern", "directory_based", "metadata_file"]
+        },
+        "metadata_field": {
+          "type": "string"
+        },
+        "metadata_value": {
+          "type": "string"
+        }
+      }
+    },
+    "pattern": {
+      "type": "object",
+      "required": ["pattern"],
+      "properties": {
+        "pattern": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["suffix", "prefix", "glob", "regex", "directory"],
+          "default": "glob"
+        },
+        "name_extraction": {
+          "type": "string",
+          "description": "How to extract clean name (e.g., 'remove_suffix:BidAdapter')"
+        },
+        "exclude": {
+          "type": "array",
+          "items": {"type": "string"}
+        }
+      }
+    },
+    "pathArray": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "relationship": {
+      "type": "object",
+      "required": ["type", "target"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["uses_modules_from", "extends", "documents", "depends_on"]
+        },
+        "target": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

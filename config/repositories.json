@@ -1,0 +1,9 @@
+{
+  "$schema": "./schema/repository.schema.json",
+  "description": "Master configuration that imports all repository configurations",
+  "repositories": [
+    "./repositories/prebid/prebid-js.json",
+    "./repositories/prebid/prebid-server-go.json",
+    "./repositories/prebid/prebid-server-java.json"
+  ]
+}

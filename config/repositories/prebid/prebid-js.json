@@ -1,0 +1,74 @@
+{
+  "$schema": "../../schema/repository.schema.json",
+  "repo_name": "prebid/Prebid.js",
+  "repo_type": "prebid-js",
+  "description": "Prebid.js - Header Bidding Library",
+  "extends": "../shared/prebid-base.json",
+  "detection_strategy": "hybrid",
+  "fetch_strategy": "filenames_only",
+  "module_categories": {
+    "bid_adapter": {
+      "paths": ["modules/"]
+    },
+    "analytics_adapter": {
+      "paths": ["modules/"]
+    },
+    "rtd_module": {
+      "paths": ["modules/"]
+    },
+    "id_module": {
+      "paths": ["modules/"]
+    },
+    "video_module": {
+      "paths": ["modules/"]
+    }
+  },
+  "version_overrides": {
+    "v10.0+": {
+      "module_categories": {
+        "bid_adapter": {
+          "paths": ["modules/", "metadata/modules/"],
+          "patterns": [
+            {
+              "pattern": "*BidAdapter.js",
+              "type": "suffix",
+              "name_extraction": "remove_suffix:BidAdapter"
+            },
+            {
+              "pattern": "*BidAdapter.json",
+              "type": "suffix",
+              "name_extraction": "remove_suffix:BidAdapter"
+            }
+          ],
+          "detection_strategy": "metadata_file",
+          "metadata_field": "componentType",
+          "metadata_value": "bidder"
+        },
+        "analytics_adapter": {
+          "paths": ["modules/", "metadata/modules/"],
+          "patterns": [
+            {
+              "pattern": "*AnalyticsAdapter.js",
+              "type": "suffix",
+              "name_extraction": "remove_suffix:AnalyticsAdapter"
+            },
+            {
+              "pattern": "*AnalyticsAdapter.json",
+              "type": "suffix",
+              "name_extraction": "remove_suffix:AnalyticsAdapter"
+            }
+          ],
+          "detection_strategy": "metadata_file",
+          "metadata_field": "componentType",
+          "metadata_value": "analytics"
+        }
+      }
+    }
+  },
+  "paths": {
+    "core": ["src/", "libraries/"],
+    "test": ["test/spec/modules/", "test/spec/unit/"],
+    "docs": ["docs/"],
+    "exclude": ["node_modules/", "build/", "dist/"]
+  }
+}

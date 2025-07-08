@@ -1,0 +1,52 @@
+{
+  "$schema": "../../schema/repository.schema.json",
+  "repo_name": "prebid/prebid-server",
+  "repo_type": "prebid-server-go",
+  "description": "Prebid Server (Go) - Server-Side Header Bidding",
+  "extends": "../shared/prebid-base.json",
+  "detection_strategy": "directory_based",
+  "fetch_strategy": "directory_names",
+  "module_categories": {
+    "bid_adapter": {
+      "display_name": "Bid Adapters",
+      "paths": ["adapters/"],
+      "patterns": [
+        {
+          "pattern": "adapters/*",
+          "type": "directory",
+          "exclude": ["adapters/adapterstest", "adapters/*test*"]
+        }
+      ],
+      "detection_strategy": "directory_based"
+    },
+    "analytics_module": {
+      "display_name": "Analytics Modules",
+      "paths": ["analytics/"],
+      "patterns": [
+        {
+          "pattern": "analytics/*",
+          "type": "directory",
+          "exclude": ["analytics/build", "analytics/config"]
+        }
+      ],
+      "detection_strategy": "directory_based"
+    },
+    "general_module": {
+      "display_name": "General Modules",
+      "paths": ["modules/"],
+      "patterns": [
+        {
+          "pattern": "modules/*/*",
+          "type": "directory"
+        }
+      ],
+      "detection_strategy": "directory_based"
+    }
+  },
+  "paths": {
+    "core": ["endpoints/", "openrtb_ext/", "exchange/", "config/"],
+    "test": ["adapters/*/test/", "*_test.go"],
+    "docs": ["docs/"],
+    "exclude": ["vendor/", ".git/"]
+  }
+}
