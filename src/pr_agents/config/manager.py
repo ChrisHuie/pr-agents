@@ -18,16 +18,31 @@ from .models import (
     RepositoryStructure,
 )
 from .pattern_matcher import PatternMatcher
+from .watcher import ConfigurationWatcher
 
 
 class RepositoryStructureManager:
     """Manages repository structure configurations."""
 
-    def __init__(self, config_path: str = "config"):
+    def __init__(self, config_path: str = "config", enable_hot_reload: bool = False):
+        """
+        Initialize the repository structure manager.
+
+        Args:
+            config_path: Path to configuration directory or file
+            enable_hot_reload: Enable automatic configuration reloading
+        """
+        self.config_path = config_path
         self.loader = ConfigurationLoader(config_path)
         self.config: RepositoryConfig | None = None
         self.pattern_matcher = PatternMatcher()
+        self.enable_hot_reload = enable_hot_reload
+        self._watcher: ConfigurationWatcher | None = None
         self._load_config()
+        
+        # Start watcher if hot reload is enabled
+        if enable_hot_reload:
+            self._start_watcher()
 
     def _load_config(self):
         """Load configuration from file."""
@@ -269,3 +284,32 @@ class RepositoryStructureManager:
             related.append((relationship.target_repo, relationship.relationship_type))
 
         return related
+
+    def _start_watcher(self):
+        """Start the configuration watcher."""
+        from .watcher import ConfigurationWatcher
+        
+        self._watcher = ConfigurationWatcher(
+            self.config_path,
+            callback=self._on_config_reload
+        )
+        self._watcher.start()
+        logger.info("Configuration hot-reloading enabled")
+
+    def _on_config_reload(self, new_config: RepositoryConfig):
+        """Handle configuration reload."""
+        self.config = new_config
+        logger.info(
+            f"Configuration reloaded: {len(new_config.repositories)} repositories"
+        )
+
+    def stop_watching(self):
+        """Stop watching for configuration changes."""
+        if self._watcher:
+            self._watcher.stop()
+            self._watcher = None
+
+    def reload_config(self):
+        """Manually reload the configuration."""
+        self._load_config()
+        logger.info("Configuration manually reloaded")

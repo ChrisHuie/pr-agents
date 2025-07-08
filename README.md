@@ -28,30 +28,59 @@ External API (GitHub) → Pydantic Models → Extractors → Dataclass Results �
 
 ```
 pr-agents/
-├── src/pr_agents/pr_processing/           # Core processing module
-│   ├── __init__.py                        # Public API exports
-│   ├── models.py                          # Pydantic models (external boundaries)
-│   ├── analysis_models.py                 # Dataclass models (internal results)
-│   ├── coordinator.py                     # Orchestrates processing pipeline
+├── src/pr_agents/                         # Main package
+│   ├── pr_processing/                     # Core processing module
+│   │   ├── __init__.py                    # Public API exports
+│   │   ├── models.py                      # Pydantic models (external boundaries)
+│   │   ├── analysis_models.py             # Dataclass models (internal results)
+│   │   ├── coordinator.py                 # Orchestrates processing pipeline
+│   │   │
+│   │   ├── extractors/                    # Component extraction (GitHub API → Python)
+│   │   │   ├── __init__.py
+│   │   │   ├── base.py                    # Base extractor interface
+│   │   │   ├── metadata.py                # PR title, description, labels
+│   │   │   ├── code_changes.py            # Diffs, file modifications
+│   │   │   ├── repository.py              # Repo info, branches, languages
+│   │   │   └── reviews.py                 # Comments, reviews, approvals
+│   │   │
+│   │   └── processors/                    # Analysis logic (Python → Insights)
+│   │       ├── __init__.py
+│   │       ├── base.py                    # Base processor interface
+│   │       ├── metadata_processor.py      # Quality scoring, pattern detection
+│   │       ├── code_processor.py          # Risk assessment, pattern analysis
+│   │       └── repo_processor.py          # Health scoring, language analysis
 │   │
-│   ├── extractors/                        # Component extraction (GitHub API → Python)
-│   │   ├── __init__.py
-│   │   ├── base.py                        # Base extractor interface
-│   │   ├── metadata.py                    # PR title, description, labels
-│   │   ├── code_changes.py                # Diffs, file modifications
-│   │   ├── repository.py                  # Repo info, branches, languages
-│   │   └── reviews.py                     # Comments, reviews, approvals
-│   │
-│   └── processors/                        # Analysis logic (Python → Insights)
+│   └── config/                            # Configuration system
 │       ├── __init__.py
-│       ├── base.py                        # Base processor interface
-│       ├── metadata_processor.py          # Quality scoring, pattern detection
-│       ├── code_processor.py              # Risk assessment, pattern analysis
-│       └── repo_processor.py              # Health scoring, language analysis
+│       ├── loader.py                      # Multi-file config loader
+│       ├── manager.py                     # Repository structure manager
+│       ├── models.py                      # Configuration data models
+│       ├── validator.py                   # JSON schema validation
+│       ├── builder.py                     # Configuration builder utilities
+│       ├── cli.py                         # CLI tools for config management
+│       └── watcher.py                     # Hot-reload configuration support
 │
-├── tests/pr_processing/                   # Comprehensive test suite
-│   ├── __init__.py
-│   └── test_processors.py                 # Isolated component tests
+├── config/                                # Configuration files
+│   ├── README.md                          # Configuration system documentation
+│   ├── repositories.json                  # Master repository list
+│   ├── schema/                            # JSON schemas
+│   │   └── repository.schema.json         # Repository config schema
+│   └── repositories/                      # Individual repo configs
+│       ├── prebid/                        # Prebid-specific configs
+│       └── shared/                        # Shared base configs
+│
+├── docs/                                  # Documentation
+│   ├── README.md                          # Documentation index
+│   ├── architecture/                      # Architecture documentation
+│   ├── configuration/                     # Configuration guides
+│   ├── api/                               # API reference
+│   └── guides/                            # How-to guides
+│
+├── tests/                                 # Test suite
+│   ├── pr_processing/                     # Core processing tests
+│   │   └── test_processors.py             # Isolated component tests
+│   ├── test_config_loader.py              # Configuration system tests
+│   └── test_config_edge_cases.py          # Edge case tests
 │
 ├── examples/                              # Usage examples
 │   └── pr_analysis_example.py             # Complete workflow demonstration
@@ -188,6 +217,32 @@ results = coordinator.process_components(
     pr_data, 
     processors=["code_changes"]
 )
+```
+
+## 📚 Documentation
+
+Comprehensive documentation is available in the [`docs/`](docs/) directory:
+
+- **[Documentation Index](docs/README.md)** - Start here for complete documentation
+- **[Configuration System](config/README.md)** - Learn about the multi-file configuration system
+- **[Architecture Overview](docs/architecture/overview.md)** - System design and principles
+- **[API Reference](docs/api/)** - Detailed API documentation
+- **[Guides](docs/guides/)** - Step-by-step tutorials
+
+### Configuration System Features
+
+- **Multi-file JSON configuration** with inheritance support
+- **Hot-reloading** for development environments
+- **JSON schema validation** with strict mode for CI/CD
+- **Comprehensive CLI tools** for management and testing
+- **Pattern-based module detection** with multiple strategies
+
+```bash
+# CLI Examples
+python -m src.pr_agents.config.cli validate    # Validate configurations
+python -m src.pr_agents.config.cli list        # List all repositories
+python -m src.pr_agents.config.cli watch       # Watch for changes
+python -m src.pr_agents.config.cli check prebid/Prebid.js modules/appnexusBidAdapter.js
 ```
 
 ## 🧪 Development Workflow

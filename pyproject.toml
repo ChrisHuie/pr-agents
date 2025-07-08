@@ -17,6 +17,7 @@ dependencies = [
     "pydantic>=2.11.7",
     "pygithub>=2.6.1",
     "typing-extensions>=4.14.0",
+    "watchdog>=6.0.0",
 ]
 
 [tool.setuptools.packages.find]
