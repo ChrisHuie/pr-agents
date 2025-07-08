@@ -39,7 +39,7 @@ class RepositoryStructureManager:
         self.enable_hot_reload = enable_hot_reload
         self._watcher: ConfigurationWatcher | None = None
         self._load_config()
-        
+
         # Start watcher if hot reload is enabled
         if enable_hot_reload:
             self._start_watcher()
@@ -288,10 +288,9 @@ class RepositoryStructureManager:
     def _start_watcher(self):
         """Start the configuration watcher."""
         from .watcher import ConfigurationWatcher
-        
+
         self._watcher = ConfigurationWatcher(
-            self.config_path,
-            callback=self._on_config_reload
+            self.config_path, callback=self._on_config_reload
         )
         self._watcher.start()
         logger.info("Configuration hot-reloading enabled")

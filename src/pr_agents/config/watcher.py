@@ -3,8 +3,8 @@ Configuration file watcher for hot-reloading.
 """
 
 import threading
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
 
 from loguru import logger
 from watchdog.events import FileSystemEventHandler
@@ -65,15 +65,15 @@ class ConfigurationChangeHandler(FileSystemEventHandler):
     def _is_config_file(self, path: str) -> bool:
         """Check if a file is a configuration file."""
         path_obj = Path(path)
-        
+
         # Check if it's a JSON file
         if path_obj.suffix != ".json":
             return False
-        
+
         # Ignore schema files
         if "schema" in str(path_obj):
             return False
-        
+
         # Check if it's in the config directory
         if self.config_path.is_dir():
             return str(self.config_path) in str(path_obj)
@@ -86,17 +86,17 @@ class ConfigurationChangeHandler(FileSystemEventHandler):
         with self._lock:
             try:
                 logger.info("Reloading configuration...")
-                
+
                 # Clear loader cache
                 self.loader._loaded_configs.clear()
                 self.loader._resolved_repos.clear()
-                
+
                 # Reload configuration
                 new_config = self.loader.load_config()
-                
+
                 # Call callback with new configuration
                 self.callback(new_config)
-                
+
                 logger.info(
                     f"Configuration reloaded successfully. "
                     f"Loaded {len(new_config.repositories)} repositories"
@@ -123,7 +123,9 @@ class ConfigurationWatcher:
         self.config_path = Path(config_path)
         self.callback = callback
         self.observer = Observer()
-        self.handler = ConfigurationChangeHandler(self.config_path, self._on_config_change)
+        self.handler = ConfigurationChangeHandler(
+            self.config_path, self._on_config_change
+        )
         self._user_callback = callback
         self._started = False
 
@@ -153,7 +155,7 @@ class ConfigurationWatcher:
         self.observer.schedule(self.handler, str(watch_path), recursive=True)
         self.observer.start()
         self._started = True
-        
+
         logger.info(f"Started watching configuration at: {watch_path}")
 
     def stop(self):
@@ -164,7 +166,7 @@ class ConfigurationWatcher:
         self.observer.stop()
         self.observer.join()
         self._started = False
-        
+
         logger.info("Stopped configuration watcher")
 
     def __enter__(self):
@@ -198,9 +200,9 @@ def watch_config(
 
         watcher = watch_config("config", on_config_change)
         watcher.start()
-        
+
         # ... do work ...
-        
+
         watcher.stop()
         ```
     """
