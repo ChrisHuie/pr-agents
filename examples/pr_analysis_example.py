@@ -54,10 +54,15 @@ def main():
             )
 
             for result in metadata_results:
-                if result.success and "metadata_quality" in result.data:
-                    quality = result.data["metadata_quality"]
-                    print(f"Quality level: {quality['quality_level']}")
-                    print(f"Score: {quality['score']}/100")
+                if result.success:
+                    if "title_quality" in result.data:
+                        title_quality = result.data["title_quality"]
+                        print(f"Title quality level: {title_quality['quality_level']}")
+                        print(f"Title score: {title_quality['score']}/100")
+                    if "description_quality" in result.data:
+                        desc_quality = result.data["description_quality"]
+                        print(f"Description quality level: {desc_quality['quality_level']}")
+                        print(f"Description score: {desc_quality['score']}/100")
 
         # Example 4: Complete analysis with all components
         print("\n🎯 COMPLETE ANALYSIS (all components, strict isolation):")

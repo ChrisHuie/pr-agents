@@ -9,16 +9,17 @@ from src.pr_agents.pr_processing.constants import (
     CHANGE_STATS_KEY,
     CODE_CHANGES_COMPONENT,
     DESCRIPTION_ANALYSIS_KEY,
+    DESCRIPTION_QUALITY_KEY,
     FILE_ANALYSIS_KEY,
     LANGUAGE_ANALYSIS_KEY,
     METADATA_COMPONENT,
-    METADATA_QUALITY_KEY,
     PATTERN_ANALYSIS_KEY,
     REPO_HEALTH_KEY,
     REPO_INFO_KEY,
     REPOSITORY_COMPONENT,
     RISK_ASSESSMENT_KEY,
     TITLE_ANALYSIS_KEY,
+    TITLE_QUALITY_KEY,
 )
 from src.pr_agents.pr_processing.processors import (
     CodeProcessor,
@@ -65,7 +66,18 @@ class TestMetadataProcessor:
         assert result.component == METADATA_COMPONENT
         assert TITLE_ANALYSIS_KEY in result.data
         assert DESCRIPTION_ANALYSIS_KEY in result.data
-        assert METADATA_QUALITY_KEY in result.data
+        assert TITLE_QUALITY_KEY in result.data
+        assert DESCRIPTION_QUALITY_KEY in result.data
+
+        # Check title quality scoring
+        title_quality = result.data[TITLE_QUALITY_KEY]
+        assert 0 <= title_quality["score"] <= 100
+        assert title_quality["quality_level"] in ["poor", "fair", "good", "excellent"]
+
+        # Check description quality scoring
+        desc_quality = result.data[DESCRIPTION_QUALITY_KEY]
+        assert 0 <= desc_quality["score"] <= 100
+        assert desc_quality["quality_level"] in ["poor", "fair", "good", "excellent"]
 
     def test_metadata_processor_empty_description(self, metadata_processor):
         processor = metadata_processor
@@ -81,6 +93,9 @@ class TestMetadataProcessor:
 
         assert result.success is True
         assert result.data[DESCRIPTION_ANALYSIS_KEY]["has_description"] is False
+        # Description quality should be 0 for missing description
+        assert result.data[DESCRIPTION_QUALITY_KEY]["score"] == 0
+        assert result.data[DESCRIPTION_QUALITY_KEY]["quality_level"] == "poor"
 
     def test_metadata_processor_missing_keys(self, metadata_processor):
         """Test processor handles missing optional keys gracefully."""
@@ -99,7 +114,8 @@ class TestMetadataProcessor:
         assert result.component == METADATA_COMPONENT
         assert TITLE_ANALYSIS_KEY in result.data
         assert DESCRIPTION_ANALYSIS_KEY in result.data
-        assert METADATA_QUALITY_KEY in result.data
+        assert TITLE_QUALITY_KEY in result.data
+        assert DESCRIPTION_QUALITY_KEY in result.data
         # Should handle missing description gracefully
         assert result.data[DESCRIPTION_ANALYSIS_KEY]["has_description"] is False
 

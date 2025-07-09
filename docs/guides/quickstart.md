@@ -82,7 +82,8 @@ results = coordinator.process_pr(
 )
 
 # View results
-print(f"Metadata Quality: {results['metadata']['processed']['quality_score']}")
+print(f"Title Quality: {results['metadata']['processed']['title_quality']['score']}")
+print(f"Description Quality: {results['metadata']['processed']['description_quality']['score']}")
 print(f"Code Risk Level: {results['code_changes']['processed']['risk_assessment']['risk_level']}")
 ```
 
@@ -133,12 +134,19 @@ def check_pr_quality(pr_url: str) -> dict:
     results = coordinator.process_pr(pr_url, components=["metadata"])
     
     metadata = results["metadata"]["processed"]
-    quality_score = metadata["quality_score"]
+    title_score = metadata["title_quality"]["score"]
+    desc_score = metadata["description_quality"]["score"]
+    
+    # Consider both title and description quality
+    avg_score = (title_score + desc_score) / 2
     
     return {
-        "passes": quality_score >= 70,
-        "score": quality_score,
-        "suggestions": metadata.get("suggestions", [])
+        "passes": title_score >= 70 and desc_score >= 50,
+        "title_score": title_score,
+        "description_score": desc_score,
+        "average_score": avg_score,
+        "title_issues": metadata["title_quality"].get("issues", []),
+        "description_issues": metadata["description_quality"].get("issues", [])
     }
 
 # Usage
@@ -146,7 +154,12 @@ quality = check_pr_quality("https://github.com/owner/repo/pull/123")
 if quality["passes"]:
     print("PR meets quality standards!")
 else:
-    print(f"PR needs improvement: {quality['suggestions']}")
+    print(f"Title score: {quality['title_score']}/100")
+    print(f"Description score: {quality['description_score']}/100")
+    if quality['title_issues']:
+        print(f"Title issues: {quality['title_issues']}")
+    if quality['description_issues']:
+        print(f"Description issues: {quality['description_issues']}")
 ```
 
 ### 2. Risk Assessment
@@ -177,7 +190,8 @@ def analyze_multiple_prs(pr_urls: list[str]) -> dict:
         try:
             pr_results = coordinator.process_pr(url)
             results[url] = {
-                "quality": pr_results["metadata"]["processed"]["quality_score"],
+                "title_quality": pr_results["metadata"]["processed"]["title_quality"]["score"],
+                "desc_quality": pr_results["metadata"]["processed"]["description_quality"]["score"],
                 "risk": pr_results["code_changes"]["processed"]["risk_assessment"]["risk_level"]
             }
         except Exception as e:
@@ -239,7 +253,8 @@ def main():
     code = results["code_changes"]["processed"]
     
     print(f"\nPR Analysis for: {pr_url}")
-    print(f"Quality Score: {metadata['quality_score']}/100")
+    print(f"Title Quality: {metadata['title_quality']['score']}/100")
+    print(f"Description Quality: {metadata['description_quality']['score']}/100")
     print(f"Risk Level: {code['risk_assessment']['risk_level']}")
     print(f"Files Changed: {code['size_analysis']['files_changed']}")
 

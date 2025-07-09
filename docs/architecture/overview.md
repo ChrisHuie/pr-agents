@@ -34,7 +34,7 @@ Type-safe data structures using Pydantic and dataclasses:
 
 ### 3. Processors
 Analyze extracted data to provide insights:
-- **MetadataProcessor**: Quality scoring, title analysis
+- **MetadataProcessor**: Title and description quality scoring (separate 1-100 scales)
 - **CodeProcessor**: Risk assessment, pattern detection
 - **RepoProcessor**: Health scoring, structure analysis
 - **AccuracyValidator**: Cross-component validation

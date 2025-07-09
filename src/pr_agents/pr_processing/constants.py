@@ -9,7 +9,8 @@ to ensure consistency across processors, tests, and other consumers.
 TITLE_ANALYSIS_KEY = "title_analysis"
 DESCRIPTION_ANALYSIS_KEY = "description_analysis"
 LABEL_ANALYSIS_KEY = "label_analysis"
-METADATA_QUALITY_KEY = "metadata_quality"
+TITLE_QUALITY_KEY = "title_quality"
+DESCRIPTION_QUALITY_KEY = "description_quality"
 
 # Code processor result keys
 CHANGE_STATS_KEY = "change_stats"

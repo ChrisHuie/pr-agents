@@ -48,8 +48,17 @@ class LabelAnalysis:
 
 
 @dataclass
-class MetadataQuality:
-    """Overall metadata quality assessment."""
+class TitleQuality:
+    """Title quality assessment on 1-100 scale."""
+
+    score: int
+    quality_level: str
+    issues: list[str] = field(default_factory=list)
+
+
+@dataclass
+class DescriptionQuality:
+    """Description quality assessment on 1-100 scale."""
 
     score: int
     quality_level: str
@@ -63,7 +72,8 @@ class MetadataAnalysisResult:
     title_analysis: TitleAnalysis
     description_analysis: DescriptionAnalysis
     label_analysis: LabelAnalysis
-    metadata_quality: MetadataQuality
+    title_quality: TitleQuality
+    description_quality: DescriptionQuality
 
 
 # Code Analysis Results
