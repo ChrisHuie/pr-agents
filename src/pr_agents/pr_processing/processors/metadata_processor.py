@@ -8,10 +8,11 @@ from typing import Any
 
 from ..analysis_models import (
     DescriptionAnalysis,
+    DescriptionQuality,
     LabelAnalysis,
     MetadataAnalysisResult,
-    MetadataQuality,
     TitleAnalysis,
+    TitleQuality,
 )
 from ..models import ProcessingResult
 from .base import BaseProcessor
@@ -33,12 +34,16 @@ class MetadataProcessor(BaseProcessor):
             labels = component_data.get("labels", [])
 
             # Create analysis result using dataclasses
+            title_analysis = self._analyze_title(title)
+            description_analysis = self._analyze_description(description)
+
             analysis_result = MetadataAnalysisResult(
-                title_analysis=self._analyze_title(title),
-                description_analysis=self._analyze_description(description),
+                title_analysis=title_analysis,
+                description_analysis=description_analysis,
                 label_analysis=self._analyze_labels(labels),
-                metadata_quality=self._assess_metadata_quality(
-                    title, description, labels
+                title_quality=self._assess_title_quality(title, title_analysis),
+                description_quality=self._assess_description_quality(
+                    description, description_analysis
                 ),
             )
 
@@ -140,54 +145,142 @@ class MetadataProcessor(BaseProcessor):
             has_priority_label=bool(categorized["priority"]),
         )
 
-    def _assess_metadata_quality(
-        self, title: str, description: str, labels: list
-    ) -> MetadataQuality:
-        """Assess overall metadata quality."""
+    def _assess_title_quality(
+        self, title: str, title_analysis: TitleAnalysis
+    ) -> TitleQuality:
+        """Assess title quality on a 1-100 scale."""
         score = 0
         issues = []
 
-        # Title quality (30 points)
-        if len(title) > 10:
-            score += 10
-        else:
+        # Length assessment (25 points)
+        if 15 <= title_analysis.length <= 80:
+            score += 25
+        elif 10 <= title_analysis.length < 15:
+            score += 15
+            issues.append("Title is a bit short")
+        elif 80 < title_analysis.length <= 100:
+            score += 15
+            issues.append("Title is a bit long")
+        elif title_analysis.length < 10:
+            score += 5
             issues.append("Title too short")
-
-        if len(title) < 100:
-            score += 10
         else:
+            score += 5
             issues.append("Title too long")
 
-        if not title.lower().startswith(("fix", "add", "remove", "update")):
+        # Word count assessment (15 points)
+        if 3 <= title_analysis.word_count <= 12:
+            score += 15
+        elif 2 <= title_analysis.word_count < 3:
             score += 10
+            issues.append("Title could be more descriptive")
+        elif 12 < title_analysis.word_count <= 15:
+            score += 10
+            issues.append("Title is wordy")
+        else:
+            score += 5
+            issues.append("Title word count not optimal")
 
-        # Description quality (40 points)
-        if description and len(description) > 50:
+        # Prefix/Convention assessment (20 points)
+        if title_analysis.has_prefix:
             score += 20
         else:
-            issues.append("Description missing or too short")
-
-        if description and ("## " in description or "# " in description):
-            score += 20
-        elif description:
             score += 10
+            issues.append("No conventional prefix (feat/fix/docs/etc)")
 
-        # Labels quality (30 points)
-        if len(labels) > 0:
+        # Ticket reference assessment (15 points)
+        if title_analysis.has_ticket_reference:
             score += 15
+
+        # Clarity indicators (25 points)
+        if not title_analysis.is_wip:
+            score += 10
         else:
-            issues.append("No labels assigned")
+            issues.append("Work in progress")
 
-        if len(labels) >= 2:
-            score += 15
+        if not title_analysis.is_question:
+            score += 10
+        else:
+            score += 5
+            issues.append("Title is phrased as a question")
+
+        # Basic grammar check - starts with capital letter
+        if title and title[0].isupper():
+            score += 5
 
         quality_level = (
             "excellent"
-            if score >= 80
-            else "good" if score >= 60 else "fair" if score >= 40 else "poor"
+            if score >= 85
+            else "good" if score >= 70 else "fair" if score >= 50 else "poor"
         )
 
-        return MetadataQuality(
+        return TitleQuality(
+            score=score,
+            quality_level=quality_level,
+            issues=issues,
+        )
+
+    def _assess_description_quality(
+        self, description: str, description_analysis: DescriptionAnalysis
+    ) -> DescriptionQuality:
+        """Assess description quality on a 1-100 scale."""
+        score = 0
+        issues = []
+
+        # Has description at all (20 points)
+        if not description_analysis.has_description:
+            issues.append("No description provided")
+            return DescriptionQuality(
+                score=0,
+                quality_level="poor",
+                issues=issues,
+            )
+
+        score += 20
+
+        # Length assessment (20 points)
+        if description_analysis.length >= 100:
+            score += 20
+        elif description_analysis.length >= 50:
+            score += 15
+            issues.append("Description could be more detailed")
+        else:
+            score += 5
+            issues.append("Description too brief")
+
+        # Structure assessment (25 points)
+        if len(description_analysis.sections) >= 3:
+            score += 25
+        elif len(description_analysis.sections) >= 2:
+            score += 20
+        elif len(description_analysis.sections) >= 1:
+            score += 15
+            issues.append("Consider adding more sections")
+        else:
+            score += 5
+            issues.append("No structured sections found")
+
+        # Content richness (35 points)
+        if description_analysis.has_checklist:
+            score += 10
+
+        if description_analysis.has_links:
+            score += 10
+
+        if description_analysis.has_code_blocks:
+            score += 10
+
+        # Line count as a proxy for detail
+        if description_analysis.line_count >= 5:
+            score += 5
+
+        quality_level = (
+            "excellent"
+            if score >= 85
+            else "good" if score >= 70 else "fair" if score >= 50 else "poor"
+        )
+
+        return DescriptionQuality(
             score=score,
             quality_level=quality_level,
             issues=issues,

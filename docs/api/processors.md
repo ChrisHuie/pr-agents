@@ -40,7 +40,7 @@ class BaseProcessor(ABC):
 
 ### MetadataProcessor
 
-Analyzes PR metadata quality and extracts insights.
+Analyzes PR title and description quality with separate scoring metrics.
 
 ```python
 from src.pr_agents.pr_processing.processors.metadata_processor import MetadataProcessor
@@ -50,19 +50,17 @@ result = processor.process(metadata_data)
 ```
 
 **Analysis Includes:**
-- **Quality Score** (0-100): Overall metadata quality
-- **Title Analysis**: 
-  - Length appropriateness
-  - Conventional commit format
-  - Clarity score
-- **Description Analysis**:
-  - Completeness
-  - Section detection (Summary, Testing, etc.)
-  - Markdown quality
-- **Label Categorization**:
-  - Type (bug, feature, etc.)
-  - Priority level
-  - Component tags
+- **Title Quality** (1-100): Independent title quality score
+  - Length assessment (optimal: 15-80 characters)
+  - Word count (optimal: 3-12 words)
+  - Conventional prefix detection (feat/fix/docs/etc)
+  - Ticket reference recognition
+  - Clarity indicators (not WIP, proper capitalization)
+- **Description Quality** (1-100): Independent description quality score
+  - Presence check (0 if missing)
+  - Length assessment (100+ chars for full points)
+  - Structure analysis (sections with headers)
+  - Content richness (checklists, links, code blocks)
 
 **Example Output:**
 ```python
@@ -70,28 +68,43 @@ ProcessingResult(
     component="metadata",
     success=True,
     data={
-        "quality_score": 85,
-        "quality_rating": "excellent",
+        "title_quality": {
+            "score": 85,
+            "quality_level": "excellent",
+            "issues": []
+        },
+        "description_quality": {
+            "score": 75,
+            "quality_level": "good",
+            "issues": ["Consider adding more sections"]
+        },
         "title_analysis": {
             "length": 45,
+            "word_count": 6,
+            "has_emoji": False,
             "has_prefix": True,
-            "prefix": "feat",
-            "is_clear": True,
-            "suggestions": []
+            "has_ticket_reference": True,
+            "is_question": False,
+            "is_wip": False
         },
         "description_analysis": {
+            "has_description": True,
             "length": 350,
-            "has_sections": True,
-            "sections_found": ["summary", "testing"],
-            "completeness_score": 0.9
+            "line_count": 12,
+            "sections": ["summary", "testing"],
+            "has_checklist": True,
+            "has_links": True,
+            "has_code_blocks": False
         },
         "label_analysis": {
-            "categories": {
+            "total_count": 2,
+            "categorized": {
                 "type": ["enhancement"],
-                "component": ["bid-adapter"],
                 "priority": ["medium"]
             },
-            "missing_labels": ["size"]
+            "uncategorized": [],
+            "has_type_label": True,
+            "has_priority_label": True
         }
     }
 )
@@ -280,7 +293,8 @@ processor = MetadataProcessor()
 result = processor.process(extracted_metadata)
 
 if result.success:
-    print(f"Quality Score: {result.data['quality_score']}")
+    print(f"Title Quality Score: {result.data['title_quality']['score']}")
+    print(f"Description Quality Score: {result.data['description_quality']['score']}")
     print(f"Title Analysis: {result.data['title_analysis']}")
 ```
 

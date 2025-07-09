@@ -91,7 +91,7 @@ If any of these commands fail, fix the issues before considering the task comple
    - `reviews.py`: Extracts reviews, comments, approval status
 
 3. **Processors** (`src/pr_agents/pr_processing/processors/`)
-   - `metadata_processor.py`: Quality scoring, title analysis, label categorization
+   - `metadata_processor.py`: Title quality scoring, description quality scoring
    - `code_processor.py`: Risk assessment, pattern detection, file analysis
    - `repo_processor.py`: Health scoring, language analysis, branch patterns
 
@@ -110,11 +110,22 @@ If any of these commands fail, fix the issues before considering the task comple
 - Risk levels: minimal (0), low (1-2), medium (3-4), high (5+)
 
 #### Metadata Quality Scoring (MetadataProcessor)
-- 100-point scale:
-  - Title: 30 points (length, formatting, prefix)
-  - Description: 40 points (content, sections, formatting)
-  - Labels: 30 points (presence, categorization)
-- Quality levels: poor (<40), fair (40-59), good (60-79), excellent (80+)
+Separate scoring for title and description on independent 1-100 scales:
+
+**Title Quality (1-100 scale):**
+- Length assessment: 25 points (optimal: 15-80 characters)
+- Word count: 15 points (optimal: 3-12 words)
+- Conventional prefix: 20 points (feat/fix/docs/etc)
+- Ticket reference: 15 points (optional)
+- Clarity indicators: 25 points (not WIP, not a question, proper capitalization)
+- Quality levels: poor (<50), fair (50-69), good (70-84), excellent (85+)
+
+**Description Quality (1-100 scale):**
+- Has description: 20 points (0 if missing)
+- Length assessment: 20 points (100+ chars for full points)
+- Structure: 25 points (sections with headers)
+- Content richness: 35 points (checklists, links, code blocks)
+- Quality levels: poor (<50), fair (50-69), good (70-84), excellent (85+)
 
 #### Repository Health Assessment (RepoProcessor)
 - 70-point scale:
