@@ -3,6 +3,7 @@ PR Processing Coordinator - orchestrates extraction and processing with strict b
 """
 
 import time
+from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
@@ -14,6 +15,7 @@ from ..logging_config import (
     log_data_flow,
     log_processing_step,
 )
+from ..output import OutputManager
 from .extractors import (
     BaseExtractor,
     CodeChangesExtractor,
@@ -43,6 +45,10 @@ class PRCoordinator:
         # Initialize PR fetcher
         self.pr_fetcher = PRFetcher(github_token)
         log_processing_step("PR Fetcher initialized")
+
+        # Initialize output manager
+        self.output_manager = OutputManager()
+        log_processing_step("Output Manager initialized")
 
         # Initialize extractors
         self._extractors: dict[str, BaseExtractor] = {
@@ -570,3 +576,150 @@ class PRCoordinator:
             )
 
         return summary
+
+    def analyze_pr_and_save(
+        self,
+        pr_url: str,
+        output_path: str | Path,
+        output_format: str = "markdown",
+        extract_components: set[str] | None = None,
+        run_processors: list[str] | None = None,
+    ) -> tuple[dict[str, Any], Path]:
+        """
+        Analyze PR and save results to file.
+
+        Args:
+            pr_url: GitHub PR URL
+            output_path: Path to save the output file
+            output_format: Output format (markdown, json, text)
+            extract_components: Components to extract
+            run_processors: Processors to run
+
+        Returns:
+            Tuple of (analysis results, saved file path)
+        """
+        # Run analysis
+        results = self.analyze_pr(pr_url, extract_components, run_processors)
+
+        # Format results for output
+        formatted_results = self._format_results_for_output(results)
+
+        # Save to file
+        saved_path = self.output_manager.save(
+            formatted_results, output_path, output_format
+        )
+
+        return results, saved_path
+
+    def _format_results_for_output(self, results: dict[str, Any]) -> dict[str, Any]:
+        """
+        Format analysis results for output formatters.
+
+        Args:
+            results: Raw analysis results
+
+        Returns:
+            Formatted results dictionary
+        """
+        # Extract PR metadata
+        pr_url = results.get("pr_url", "")
+        processing_results = results.get("processing_results", [])
+
+        # Parse PR info from URL
+        pr_info = self._parse_pr_url(pr_url)
+
+        # Build formatted output
+        output = {
+            "pr_url": pr_url,
+            "pr_number": pr_info.get("pr_number"),
+            "repository": pr_info.get("repository"),
+        }
+
+        # Add processed component data
+        for result in processing_results:
+            if result.get("success"):
+                component = result.get("component")
+                data = result.get("data", {})
+
+                if component == "metadata":
+                    output["metadata"] = self._format_metadata_output(data)
+                elif component == "code_changes":
+                    output["code_changes"] = self._format_code_output(data)
+                elif component == "repository":
+                    output["repository_info"] = self._format_repo_output(data)
+                elif component == "reviews":
+                    output["reviews"] = self._format_reviews_output(data)
+
+        # Add processing metrics
+        output["processing_metrics"] = self._format_processing_metrics(results)
+
+        return output
+
+    def _parse_pr_url(self, pr_url: str) -> dict[str, Any]:
+        """Parse PR URL to extract repository and PR number."""
+        try:
+            parsed = urlparse(pr_url)
+            path_parts = parsed.path.strip("/").split("/")
+
+            if len(path_parts) >= 4 and path_parts[2] == "pull":
+                return {
+                    "repository": f"{path_parts[0]}/{path_parts[1]}",
+                    "pr_number": int(path_parts[3]),
+                }
+        except Exception:
+            pass
+
+        return {}
+
+    def _format_metadata_output(self, data: dict[str, Any]) -> dict[str, Any]:
+        """Format metadata component data for output."""
+        return {
+            "title_quality": data.get("title_quality", {}),
+            "description_quality": data.get("description_quality", {}),
+            "label_analysis": data.get("label_analysis", {}),
+        }
+
+    def _format_code_output(self, data: dict[str, Any]) -> dict[str, Any]:
+        """Format code changes component data for output."""
+        return {
+            "change_stats": data.get("change_stats", {}),
+            "risk_assessment": data.get("risk_assessment", {}),
+            "pattern_analysis": data.get("pattern_analysis", {}),
+            "file_analysis": data.get("file_analysis", {}),
+        }
+
+    def _format_repo_output(self, data: dict[str, Any]) -> dict[str, Any]:
+        """Format repository component data for output."""
+        return {
+            "health_assessment": data.get("health_assessment", {}),
+            "language_analysis": data.get("language_analysis", {}),
+            "branch_analysis": data.get("branch_analysis", {}),
+        }
+
+    def _format_reviews_output(self, data: dict[str, Any]) -> dict[str, Any]:
+        """Format reviews component data for output."""
+        return {
+            "review_summary": data.get("review_summary", {}),
+            "review_timeline": data.get("review_timeline", {}),
+            "comment_analysis": data.get("comment_analysis", {}),
+        }
+
+    def _format_processing_metrics(self, results: dict[str, Any]) -> dict[str, Any]:
+        """Format processing metrics for output."""
+        processing_results = results.get("processing_results", [])
+        summary = results.get("summary", {})
+
+        # Calculate component durations
+        component_durations = {}
+        for result in processing_results:
+            component = result.get("component")
+            duration = (result.get("processing_time_ms", 0) or 0) / 1000.0
+            if component:
+                component_durations[component] = duration
+
+        return {
+            "total_duration": summary.get("total_processing_time_ms", 0) / 1000.0,
+            "component_durations": component_durations,
+            "components_processed": summary.get("components_processed", 0),
+            "processing_failures": summary.get("processing_failures", 0),
+        }
