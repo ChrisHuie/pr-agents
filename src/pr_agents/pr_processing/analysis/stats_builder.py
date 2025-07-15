@@ -1,5 +1,5 @@
 """
-Summary builder for PR analysis results.
+Stats builder for PR analysis results.
 """
 
 from typing import Any
@@ -7,19 +7,19 @@ from typing import Any
 from ..models import PRData, ProcessingResult
 
 
-class SummaryBuilder:
+class StatsBuilder:
     """
-    Builds summaries and analytics from PR analysis results.
+    Builds statistics and analytics from PR analysis results.
 
     Pure functions for generating insights and statistics.
     """
 
     @staticmethod
-    def build_single_pr_summary(
+    def build_single_pr_stats(
         pr_data: PRData, processing_results: list[ProcessingResult]
     ) -> dict[str, Any]:
         """
-        Generate high-level summary for a single PR analysis.
+        Generate high-level statistics for a single PR analysis.
 
         Args:
             pr_data: Extracted PR data
@@ -31,7 +31,7 @@ class SummaryBuilder:
         successful_results = [r for r in processing_results if r.success]
         failed_results = [r for r in processing_results if not r.success]
 
-        summary = {
+        stats = {
             "components_extracted": [],
             "components_processed": len(successful_results),
             "processing_failures": len(failed_results),
@@ -42,33 +42,33 @@ class SummaryBuilder:
 
         # Track what was extracted
         if pr_data.metadata:
-            summary["components_extracted"].append("metadata")
+            stats["components_extracted"].append("metadata")
         if pr_data.code_changes:
-            summary["components_extracted"].append("code_changes")
+            stats["components_extracted"].append("code_changes")
         if pr_data.repository_info:
-            summary["components_extracted"].append("repository")
+            stats["components_extracted"].append("repository")
         if pr_data.review_data:
-            summary["components_extracted"].append("reviews")
+            stats["components_extracted"].append("reviews")
 
         # Add quick insights if available
-        insights = SummaryBuilder._extract_insights(successful_results)
+        insights = StatsBuilder._extract_insights(successful_results)
         if insights:
-            summary["insights"] = insights
+            stats["insights"] = insights
 
-        return summary
+        return stats
 
     @staticmethod
-    def build_batch_summary(pr_results: dict[str, Any]) -> dict[str, Any]:
+    def build_batch_stats(pr_results: dict[str, Any]) -> dict[str, Any]:
         """
-        Generate summary statistics for batch PR results.
+        Generate statistics for batch PR results.
 
         Args:
             pr_results: Dictionary of PR analysis results
 
         Returns:
-            Batch summary with aggregated statistics
+            Batch statistics with aggregated values
         """
-        summary = {
+        stats = {
             "total_prs": len(pr_results),
             "successful_analyses": 0,
             "failed_analyses": 0,
@@ -99,24 +99,24 @@ class SummaryBuilder:
 
         for _pr_url, pr_result in pr_results.items():
             if pr_result.get("error"):
-                summary["failed_analyses"] += 1
+                stats["failed_analyses"] += 1
                 continue
 
-            summary["successful_analyses"] += 1
+            stats["successful_analyses"] += 1
 
             # Extract insights from processing results
             if "processing_results" in pr_result:
-                SummaryBuilder._aggregate_pr_statistics(
-                    pr_result["processing_results"], summary, files_changed_list
+                StatsBuilder._aggregate_pr_statistics(
+                    pr_result["processing_results"], stats, files_changed_list
                 )
 
         # Calculate averages
         if files_changed_list:
-            summary["average_files_changed"] = sum(files_changed_list) / len(
+            stats["average_files_changed"] = sum(files_changed_list) / len(
                 files_changed_list
             )
 
-        return summary
+        return stats
 
     @staticmethod
     def _extract_insights(successful_results: list[ProcessingResult]) -> dict[str, Any]:
@@ -145,7 +145,7 @@ class SummaryBuilder:
     @staticmethod
     def _aggregate_pr_statistics(
         processing_results: list[dict],
-        summary: dict[str, Any],
+        stats: dict[str, Any],
         files_changed_list: list[int],
     ) -> None:
         """Aggregate statistics from individual PR results."""
@@ -159,23 +159,23 @@ class SummaryBuilder:
             # Code change statistics
             if component == "code_changes" and "risk_assessment" in data:
                 risk_level = data["risk_assessment"].get("risk_level", "minimal")
-                summary["by_risk_level"][risk_level] += 1
+                stats["by_risk_level"][risk_level] += 1
 
                 # Code statistics
                 if "change_stats" in data:
-                    stats = data["change_stats"]
-                    summary["total_additions"] += stats.get("total_additions", 0)
-                    summary["total_deletions"] += stats.get("total_deletions", 0)
-                    files_changed_list.append(stats.get("changed_files", 0))
+                    change_stats = data["change_stats"]
+                    stats["total_additions"] += change_stats.get("total_additions", 0)
+                    stats["total_deletions"] += change_stats.get("total_deletions", 0)
+                    files_changed_list.append(change_stats.get("changed_files", 0))
 
             # Metadata quality
             elif component == "metadata":
                 if "title_quality" in data:
                     title_level = data["title_quality"].get("quality_level", "poor")
-                    summary["by_title_quality"][title_level] += 1
+                    stats["by_title_quality"][title_level] += 1
 
                 if "description_quality" in data:
                     desc_level = data["description_quality"].get(
                         "quality_level", "poor"
                     )
-                    summary["by_description_quality"][desc_level] += 1
+                    stats["by_description_quality"][desc_level] += 1

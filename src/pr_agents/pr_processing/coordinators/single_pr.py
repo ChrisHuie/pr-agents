@@ -59,8 +59,8 @@ class SinglePRCoordinator(BaseCoordinator):
         # Process components
         processing_results = self.process_components(pr_data, run_processors)
 
-        # Generate summary
-        summary = self._generate_summary(pr_data, processing_results)
+        # Generate statistics
+        stats = self._generate_stats(pr_data, processing_results)
 
         return {
             "pr_url": pr_url,
@@ -68,7 +68,7 @@ class SinglePRCoordinator(BaseCoordinator):
             "processing_results": [
                 result.model_dump() for result in processing_results
             ],
-            "summary": summary,
+            "summary": stats,
         }
 
     def extract_pr_components(
@@ -210,10 +210,10 @@ class SinglePRCoordinator(BaseCoordinator):
             )
             return None
 
-    def _generate_summary(
+    def _generate_stats(
         self, pr_data: PRData, processing_results: list[ProcessingResult]
     ) -> dict[str, Any]:
-        """Generate high-level summary of PR analysis."""
+        """Generate high-level statistics of PR analysis."""
         successful_results = [r for r in processing_results if r.success]
         failed_results = [r for r in processing_results if not r.success]
 

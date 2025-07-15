@@ -12,7 +12,7 @@ from loguru import logger
 
 from ..logging_config import log_processing_step
 from ..output import OutputManager
-from .analysis import ResultFormatter, SummaryBuilder
+from .analysis import ResultFormatter, StatsBuilder
 from .coordinators import BatchCoordinator, ComponentManager, SinglePRCoordinator
 from .pr_fetcher import PRFetcher
 
@@ -276,23 +276,23 @@ class PRCoordinator:
         """
         return self.component_manager.get_component_data(pr_data, component_name)
 
-    def _generate_summary(
+    def _generate_stats(
         self, pr_data: Any, processing_results: list[Any]
     ) -> dict[str, Any]:
         """
-        Generate high-level summary of PR analysis.
+        Generate high-level statistics of PR analysis.
 
-        Delegates to SummaryBuilder.
+        Delegates to StatsBuilder.
         """
-        return SummaryBuilder.build_single_pr_summary(pr_data, processing_results)
+        return StatsBuilder.build_single_pr_stats(pr_data, processing_results)
 
-    def _generate_batch_summary(self, pr_results: dict[str, Any]) -> dict[str, Any]:
+    def _generate_batch_stats(self, pr_results: dict[str, Any]) -> dict[str, Any]:
         """
-        Generate summary for batch results.
+        Generate statistics for batch results.
 
-        Delegates to SummaryBuilder.
+        Delegates to StatsBuilder.
         """
-        return SummaryBuilder.build_batch_summary(pr_results)
+        return StatsBuilder.build_batch_stats(pr_results)
 
     def _format_results_for_output(self, results: dict[str, Any]) -> dict[str, Any]:
         """

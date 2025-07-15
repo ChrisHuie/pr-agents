@@ -56,7 +56,7 @@ class PRTaggerProcessor(BaseProcessor):
             # Initialize result
             result = TaggingResult(
                 repo_type=repo_info.get("repo_type"),
-                repo_version=self._detect_version(repo_info),
+                repo_version=self._detect_version(component_data, repo_info),
             )
 
             # Get YAML registry for this repo
@@ -242,9 +242,19 @@ class PRTaggerProcessor(BaseProcessor):
                     result.stats["files_by_primary_tag"][primary] = 0
                 result.stats["files_by_primary_tag"][primary] += 1
 
-    def _detect_version(self, repo_info: dict[str, Any]) -> str | None:
-        """Detect repository version from info."""
-        # This could be enhanced to detect version from branches, tags, etc.
+    def _detect_version(
+        self, component_data: dict[str, Any], repo_info: dict[str, Any]
+    ) -> str | None:
+        """Detect repository version from component data or repo info."""
+        # Check if version is provided in component data first
+        if "version" in component_data:
+            return component_data["version"]
+
+        # Check if version is provided in repo info
+        if "version" in repo_info:
+            return repo_info["version"]
+
+        # Fall back to default branch
         return repo_info.get("default_branch", "master")
 
     def _serialize_result(self, result: TaggingResult) -> dict[str, Any]:

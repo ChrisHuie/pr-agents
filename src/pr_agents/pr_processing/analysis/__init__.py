@@ -3,9 +3,9 @@ Analysis modules for PR processing results.
 """
 
 from .result_formatter import ResultFormatter
-from .summary_builder import SummaryBuilder
+from .stats_builder import StatsBuilder
 
 __all__ = [
     "ResultFormatter",
-    "SummaryBuilder",
+    "StatsBuilder",
 ]

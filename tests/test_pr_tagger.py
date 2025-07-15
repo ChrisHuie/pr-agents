@@ -2,7 +2,7 @@
 Tests for PR tagging processor.
 """
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -21,8 +21,52 @@ class TestPRTaggerProcessor:
 
     @pytest.fixture
     def processor(self):
-        """Create a processor instance."""
-        return PRTaggerProcessor()
+        """Create a processor instance with mocked config."""
+        with patch(
+            "src.pr_agents.pr_processing.processors.pr_tagger.RepositoryStructureManager"
+        ) as mock_manager:
+            # Mock the repository manager
+            mock_instance = MagicMock()
+            mock_manager.return_value = mock_instance
+
+            # Configure the mock to return appropriate module info
+            def get_module_info(repo_url, filepath, version=None):
+                # Return module info based on filepath
+                if "BidAdapter" in filepath:
+                    return {
+                        "categories": ["bid_adapter"],
+                        "module_name": filepath.split("/")[-1].replace(
+                            "BidAdapter.js", ""
+                        ),
+                        "is_core": False,
+                        "is_test": "test" in filepath,
+                        "is_doc": filepath.endswith(".md"),
+                    }
+                elif "src/prebid.js" in filepath:
+                    return {
+                        "categories": ["core"],
+                        "module_name": None,
+                        "is_core": True,
+                        "is_test": False,
+                        "is_doc": False,
+                    }
+                else:
+                    return {
+                        "categories": [],
+                        "module_name": None,
+                        "is_core": False,
+                        "is_test": "test" in filepath,
+                        "is_doc": filepath.endswith(".md"),
+                    }
+
+            mock_instance.get_module_info = MagicMock(side_effect=get_module_info)
+            mock_instance.get_repository = MagicMock(return_value=MagicMock())
+
+            # Create processor with mocked dependencies
+            processor = PRTaggerProcessor()
+            processor.repo_manager = mock_instance
+
+            return processor
 
     @pytest.fixture
     def sample_pr_data(self):

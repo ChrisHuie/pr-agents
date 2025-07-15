@@ -8,6 +8,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from src.pr_agents.pr_processing.fetchers.date_range import DateRangePRFetcher
+from tests.fixtures.mock_github import MockLabel
 
 
 @pytest.fixture
@@ -41,7 +42,7 @@ class TestDateRangePRFetcher:
                 number=1,
                 title="Test PR 1",
                 user=MagicMock(login="user1"),
-                labels=[MagicMock(name="bug")],
+                labels=[MockLabel(name="bug")],
                 created_at=datetime(2024, 1, 15),
                 updated_at=datetime(2024, 1, 16),
                 state="closed",
@@ -52,7 +53,7 @@ class TestDateRangePRFetcher:
                 number=2,
                 title="Test PR 2",
                 user=MagicMock(login="user2"),
-                labels=[MagicMock(name="feature")],
+                labels=[MockLabel(name="feature")],
                 created_at=datetime(2024, 1, 20),
                 updated_at=datetime(2024, 1, 22),
                 state="closed",
@@ -72,7 +73,7 @@ class TestDateRangePRFetcher:
         assert result[0]["url"] == "https://github.com/owner/repo/pull/1"
         assert result[0]["repository"] == "owner/repo"
         assert result[1]["title"] == "Test PR 2"
-        assert "bug" in result[0]["labels"]
+        assert result[0]["labels"] == ["bug"]
 
         # Verify search query
         mock_github_client.search_issues.assert_called_once()

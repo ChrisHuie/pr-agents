@@ -61,7 +61,9 @@ class BasePRFetcher(ABC):
             "author": pr.user.login,
             "merged_at": (
                 pr.pull_request.merged_at.isoformat()
-                if hasattr(pr, "pull_request") and pr.pull_request.merged_at
+                if hasattr(pr, "pull_request")
+                and pr.pull_request
+                and pr.pull_request.merged_at
                 else None
             ),
             "labels": [label.name for label in pr.labels],

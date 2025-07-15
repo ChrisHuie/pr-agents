@@ -183,7 +183,9 @@ class TestLiveIntegration:
             for result in analysis["processing_results"]:
                 if result["success"]:
                     assert "processing_time_ms" in result
-                    assert result["processing_time_ms"] >= 0  # Allow 0ms for very fast operations
+                    assert (
+                        result["processing_time_ms"] >= 0
+                    )  # Allow 0ms for very fast operations
 
 
 if __name__ == "__main__":

@@ -71,19 +71,22 @@ class TestPRCoordinatorBatch:
                 }
             )
 
-        coordinator.analyze_pr = Mock(side_effect=mock_results)
+        coordinator.batch_coordinator.single_pr_coordinator.coordinate = Mock(
+            side_effect=mock_results
+        )
 
         # Test batch analysis
         results = coordinator.analyze_prs_batch(pr_urls)
 
-        assert results["total_prs"] == 2
-        assert results["successful"] == 2
-        assert results["failed"] == 0
+        assert "pr_results" in results
+        assert "batch_summary" in results
+        assert results["batch_summary"]["total_prs"] == 2
+        assert results["batch_summary"]["successful_analyses"] == 2
+        assert results["batch_summary"]["failed_analyses"] == 0
         assert len(results["pr_results"]) == 2
 
         # Check summary statistics
-        summary = results["summary"]
-        assert summary["total_analyzed"] == 2
+        summary = results["batch_summary"]
         assert summary["by_risk_level"]["low"] == 2
         assert summary["by_title_quality"]["good"] == 2
         assert summary["total_additions"] == 200
@@ -99,7 +102,7 @@ class TestPRCoordinatorBatch:
         ]
 
         # Mock analyze_pr to return mixed results
-        def analyze_pr_side_effect(url, *args, **kwargs):
+        def coordinate_side_effect(url, *args, **kwargs):
             if url == pr_urls[1]:
                 raise Exception("PR not found")
             return {
@@ -123,14 +126,16 @@ class TestPRCoordinatorBatch:
                 ],
             }
 
-        coordinator.analyze_pr = Mock(side_effect=analyze_pr_side_effect)
+        coordinator.batch_coordinator.single_pr_coordinator.coordinate = Mock(
+            side_effect=coordinate_side_effect
+        )
 
         # Test batch analysis
         results = coordinator.analyze_prs_batch(pr_urls)
 
-        assert results["total_prs"] == 3
-        assert results["successful"] == 2
-        assert results["failed"] == 1
+        assert results["batch_summary"]["total_prs"] == 3
+        assert results["batch_summary"]["successful_analyses"] == 2
+        assert results["batch_summary"]["failed_analyses"] == 1
         assert pr_urls[1] in results["pr_results"]
         assert results["pr_results"][pr_urls[1]]["success"] is False
         assert "error" in results["pr_results"][pr_urls[1]]
@@ -142,31 +147,38 @@ class TestPRCoordinatorBatch:
             {"url": "https://github.com/owner/repo/pull/10"},
             {"url": "https://github.com/owner/repo/pull/11"},
         ]
-        coordinator.pr_fetcher.get_prs_by_release = Mock(return_value=mock_prs)
+        coordinator.batch_coordinator.pr_fetcher.get_prs_by_release = Mock(
+            return_value=mock_prs
+        )
 
-        # Mock batch analysis
-        mock_batch_result = {
-            "total_prs": 2,
-            "successful": 2,
-            "failed": 0,
-            "pr_results": {},
-            "summary": {},
+        # Mock single PR coordinator
+        mock_pr_result = {
+            "pr_url": "test_url",
+            "success": True,
+            "processing_results": [],
         }
-        coordinator.analyze_prs_batch = Mock(return_value=mock_batch_result)
+        coordinator.batch_coordinator.single_pr_coordinator.coordinate = Mock(
+            return_value=mock_pr_result
+        )
 
         # Test
         results = coordinator.analyze_release_prs("owner/repo", "v1.0.0")
 
-        assert "release_info" in results
-        assert results["release_info"]["repository"] == "owner/repo"
-        assert results["release_info"]["release_tag"] == "v1.0.0"
-        assert results["release_info"]["total_prs"] == 2
+        assert "repository" in results
+        assert results["repository"] == "owner/repo"
+        assert "release_tag" in results
+        assert results["release_tag"] == "v1.0.0"
+        assert results["batch_summary"]["total_prs"] == 2
 
         # Verify calls
-        coordinator.pr_fetcher.get_prs_by_release.assert_called_once_with(
+        coordinator.batch_coordinator.pr_fetcher.get_prs_by_release.assert_called_once_with(
             "owner/repo", "v1.0.0"
         )
-        coordinator.analyze_prs_batch.assert_called_once()
+        # Verify single PR coordinator was called for each PR
+        assert (
+            coordinator.batch_coordinator.single_pr_coordinator.coordinate.call_count
+            == 2
+        )
 
     def test_analyze_unreleased_prs(self, coordinator):
         """Test analyzing unreleased PRs."""
@@ -176,28 +188,32 @@ class TestPRCoordinatorBatch:
             {"url": "https://github.com/owner/repo/pull/21"},
             {"url": "https://github.com/owner/repo/pull/22"},
         ]
-        coordinator.pr_fetcher.get_unreleased_prs = Mock(return_value=mock_prs)
+        coordinator.batch_coordinator.pr_fetcher.get_unreleased_prs = Mock(
+            return_value=mock_prs
+        )
 
         # Mock batch analysis
         mock_batch_result = {
-            "total_prs": 3,
-            "successful": 3,
-            "failed": 0,
             "pr_results": {},
-            "summary": {},
+            "batch_summary": {
+                "total_prs": 3,
+                "successful_analyses": 3,
+                "failed_analyses": 0,
+            },
         }
         coordinator.analyze_prs_batch = Mock(return_value=mock_batch_result)
 
         # Test
         results = coordinator.analyze_unreleased_prs("owner/repo", "main")
 
-        assert "unreleased_info" in results
-        assert results["unreleased_info"]["repository"] == "owner/repo"
-        assert results["unreleased_info"]["base_branch"] == "main"
-        assert results["unreleased_info"]["total_unreleased_prs"] == 3
+        assert "repository" in results
+        assert results["repository"] == "owner/repo"
+        assert "base_branch" in results
+        assert results["base_branch"] == "main"
+        assert results["batch_summary"]["total_prs"] == 3
 
         # Verify calls
-        coordinator.pr_fetcher.get_unreleased_prs.assert_called_once_with(
+        coordinator.batch_coordinator.pr_fetcher.get_unreleased_prs.assert_called_once_with(
             "owner/repo", "main"
         )
 
@@ -210,15 +226,18 @@ class TestPRCoordinatorBatch:
             {"url": "https://github.com/owner/repo/pull/32"},
             {"url": "https://github.com/owner/repo/pull/33"},
         ]
-        coordinator.pr_fetcher.get_prs_between_releases = Mock(return_value=mock_prs)
+        coordinator.batch_coordinator.pr_fetcher.get_prs_between_releases = Mock(
+            return_value=mock_prs
+        )
 
         # Mock batch analysis
         mock_batch_result = {
-            "total_prs": 4,
-            "successful": 4,
-            "failed": 0,
             "pr_results": {},
-            "summary": {},
+            "batch_summary": {
+                "total_prs": 4,
+                "successful_analyses": 4,
+                "failed_analyses": 0,
+            },
         }
         coordinator.analyze_prs_batch = Mock(return_value=mock_batch_result)
 
@@ -227,14 +246,16 @@ class TestPRCoordinatorBatch:
             "owner/repo", "v1.0.0", "v1.1.0"
         )
 
-        assert "version_range_info" in results
-        assert results["version_range_info"]["repository"] == "owner/repo"
-        assert results["version_range_info"]["from_tag"] == "v1.0.0"
-        assert results["version_range_info"]["to_tag"] == "v1.1.0"
-        assert results["version_range_info"]["total_prs"] == 4
+        assert "repository" in results
+        assert results["repository"] == "owner/repo"
+        assert "from_tag" in results
+        assert results["from_tag"] == "v1.0.0"
+        assert "to_tag" in results
+        assert results["to_tag"] == "v1.1.0"
+        assert results["batch_summary"]["total_prs"] == 4
 
         # Verify calls
-        coordinator.pr_fetcher.get_prs_between_releases.assert_called_once_with(
+        coordinator.batch_coordinator.pr_fetcher.get_prs_between_releases.assert_called_once_with(
             "owner/repo", "v1.0.0", "v1.1.0"
         )
 
@@ -306,9 +327,9 @@ class TestPRCoordinatorBatch:
             },
         }
 
-        summary = coordinator._generate_batch_summary(pr_results)
+        summary = coordinator._generate_batch_stats(pr_results)
 
-        assert summary["total_analyzed"] == 3
+        assert summary["total_prs"] == 3
         assert summary["by_risk_level"]["high"] == 1
         assert summary["by_risk_level"]["low"] == 1
         assert summary["by_title_quality"]["excellent"] == 1

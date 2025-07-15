@@ -103,7 +103,7 @@ def get_prebid_test_prs() -> dict[str, str]:
         # These are more recent PRs that are likely to exist
         # Update these periodically with actual merged PR numbers
         "small_js_feature": "https://github.com/prebid/Prebid.js/pull/10000",
-        "medium_server_fix": "https://github.com/prebid/prebid-server/pull/3000", 
+        "medium_server_fix": "https://github.com/prebid/prebid-server/pull/3000",
         "docs_update": "https://github.com/prebid/prebid.github.io/pull/4000",
     }
 

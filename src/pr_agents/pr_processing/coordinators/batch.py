@@ -84,9 +84,9 @@ class BatchCoordinator(BaseCoordinator):
         # Calculate batch processing time
         total_time = time.time() - total_start
 
-        # Generate batch summary
-        batch_summary = self._generate_batch_summary(results)
-        batch_summary["total_processing_time"] = total_time
+        # Generate batch statistics
+        batch_stats = self._generate_batch_stats(results)
+        batch_stats["total_processing_time"] = total_time
 
         logger.success(
             f"🏁 Batch analysis complete: {len(results)} PRs in {total_time:.2f}s"
@@ -94,7 +94,7 @@ class BatchCoordinator(BaseCoordinator):
 
         return {
             "pr_results": results,
-            "batch_summary": batch_summary,
+            "batch_summary": batch_stats,
         }
 
     def analyze_release_prs(
@@ -119,7 +119,7 @@ class BatchCoordinator(BaseCoordinator):
         logger.info(f"🏷️ Analyzing PRs for release {release_tag} in {repo_name}")
 
         # Fetch PRs for the release
-        prs = self.pr_fetcher.fetch_release_prs(repo_name, release_tag)
+        prs = self.pr_fetcher.get_prs_by_release(repo_name, release_tag)
 
         if not prs:
             logger.warning(f"No PRs found for release {release_tag}")
@@ -163,7 +163,7 @@ class BatchCoordinator(BaseCoordinator):
         logger.info(f"📦 Analyzing unreleased PRs in {repo_name}")
 
         # Fetch unreleased PRs
-        prs = self.pr_fetcher.fetch_unreleased_prs(repo_name, base_branch)
+        prs = self.pr_fetcher.get_unreleased_prs(repo_name, base_branch)
 
         if not prs:
             logger.info("No unreleased PRs found")
@@ -210,7 +210,7 @@ class BatchCoordinator(BaseCoordinator):
         logger.info(f"🔄 Analyzing PRs between {from_tag} and {to_tag} in {repo_name}")
 
         # Fetch PRs between releases
-        prs = self.pr_fetcher.fetch_prs_between_releases(repo_name, from_tag, to_tag)
+        prs = self.pr_fetcher.get_prs_between_releases(repo_name, from_tag, to_tag)
 
         if not prs:
             logger.warning(f"No PRs found between {from_tag} and {to_tag}")
@@ -234,8 +234,8 @@ class BatchCoordinator(BaseCoordinator):
 
         return results
 
-    def _generate_batch_summary(self, pr_results: dict[str, Any]) -> dict[str, Any]:
-        """Generate summary statistics for batch results."""
+    def _generate_batch_stats(self, pr_results: dict[str, Any]) -> dict[str, Any]:
+        """Generate statistics for batch results."""
         summary = {
             "total_prs": len(pr_results),
             "successful_analyses": 0,
@@ -320,5 +320,3 @@ class BatchCoordinator(BaseCoordinator):
             )
 
         return summary
-
-
