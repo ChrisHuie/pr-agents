@@ -15,6 +15,7 @@ Welcome to the PR Agents documentation. This project provides modular Python too
 - [Version Management](./configuration/version-management.md) - Handle version-specific behaviors
 
 ### [API Reference](./api/)
+- [PRCoordinator](./api/coordinator.md) - Main orchestrator with batch processing support
 - [Extractors](./api/extractors.md) - Components that fetch data from GitHub
 - [Processors](./api/processors.md) - Components that analyze extracted data
 - [Models](./api/models.md) - Data structures and schemas

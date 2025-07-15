@@ -283,6 +283,52 @@ logger.add("debug.log", level="DEBUG")
 # Now run your code - detailed logs will be in debug.log
 ```
 
+## Batch Processing & Release Analysis
+
+The PRCoordinator now supports analyzing multiple PRs at once, including by release tags:
+
+### Analyze a Release
+
+```python
+# Analyze all PRs in a specific release
+results = coordinator.analyze_release_prs(
+    "owner/repo",
+    "v1.2.3",  # Release tag
+    extract_components={"metadata", "code_changes"}
+)
+
+print(f"PRs in release: {results['release_info']['total_prs']}")
+print(f"Risk levels: {results['summary']['by_risk_level']}")
+```
+
+### Analyze Unreleased PRs
+
+```python
+# Find PRs merged but not yet released
+results = coordinator.analyze_unreleased_prs(
+    "owner/repo",
+    base_branch="main"  # or "master" for some repos
+)
+
+print(f"Unreleased PRs: {results['unreleased_info']['total_unreleased_prs']}")
+```
+
+### Compare Versions
+
+```python
+# Analyze changes between two releases
+results = coordinator.analyze_prs_between_releases(
+    "owner/repo",
+    from_tag="v1.0.0",
+    to_tag="v1.1.0"
+)
+
+# Check quality trends
+summary = results["summary"]
+print(f"Total changes: +{summary['total_additions']} -{summary['total_deletions']}")
+print(f"Average files per PR: {summary['average_files_changed']:.1f}")
+```
+
 ## Next Steps
 
 - [Add custom repositories](./adding-repositories.md)

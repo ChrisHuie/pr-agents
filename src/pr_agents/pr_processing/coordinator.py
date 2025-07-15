@@ -22,6 +22,7 @@ from .extractors import (
     ReviewsExtractor,
 )
 from .models import PRData, ProcessingResult
+from .pr_fetcher import PRFetcher
 from .processors import BaseProcessor, CodeProcessor, MetadataProcessor, RepoProcessor
 
 
@@ -36,7 +37,12 @@ class PRCoordinator:
     def __init__(self, github_token: str) -> None:
         logger.info("🔧 Initializing PR Coordinator")
         self.github_client = Github(github_token)
+        self.github_token = github_token
         log_processing_step("GitHub client initialized")
+
+        # Initialize PR fetcher
+        self.pr_fetcher = PRFetcher(github_token)
+        log_processing_step("PR Fetcher initialized")
 
         # Initialize extractors
         self._extractors: dict[str, BaseExtractor] = {
@@ -332,4 +338,235 @@ class PRCoordinator:
                 insights["repo_health_level"] = health.get("health_level")
 
         summary["insights"] = insights
+        return summary
+
+    def analyze_prs_batch(
+        self,
+        pr_urls: list[str],
+        extract_components: set[str] | None = None,
+        run_processors: list[str] | None = None,
+        parallel: bool = False,
+    ) -> dict[str, Any]:
+        """
+        Analyze multiple PRs in batch.
+
+        Args:
+            pr_urls: List of GitHub PR URLs
+            extract_components: Components to extract
+            run_processors: Processors to run
+            parallel: Whether to process PRs in parallel (future enhancement)
+
+        Returns:
+            Dictionary with results for each PR
+        """
+        logger.info(f"🔄 Starting batch analysis of {len(pr_urls)} PRs")
+
+        results = {
+            "total_prs": len(pr_urls),
+            "successful": 0,
+            "failed": 0,
+            "pr_results": {},
+            "summary": {},
+        }
+
+        for pr_url in pr_urls:
+            try:
+                pr_result = self.analyze_pr(pr_url, extract_components, run_processors)
+                results["pr_results"][pr_url] = pr_result
+                results["successful"] += 1
+            except Exception as e:
+                logger.error(f"Failed to analyze PR {pr_url}: {e}")
+                results["pr_results"][pr_url] = {
+                    "error": str(e),
+                    "success": False,
+                }
+                results["failed"] += 1
+
+        # Generate batch summary
+        results["summary"] = self._generate_batch_summary(results["pr_results"])
+
+        logger.success(
+            f"✅ Batch analysis complete: {results['successful']}/{results['total_prs']} successful"
+        )
+        return results
+
+    def analyze_release_prs(
+        self,
+        repo_name: str,
+        release_tag: str,
+        extract_components: set[str] | None = None,
+        run_processors: list[str] | None = None,
+    ) -> dict[str, Any]:
+        """
+        Analyze all PRs included in a specific release.
+
+        Args:
+            repo_name: Repository name (e.g., "owner/repo")
+            release_tag: Release tag name (e.g., "v1.2.3")
+            extract_components: Components to extract
+            run_processors: Processors to run
+
+        Returns:
+            Dictionary with analysis results for the release
+        """
+        logger.info(f"📦 Analyzing PRs for release {release_tag} in {repo_name}")
+
+        # Fetch PRs for the release
+        prs = self.pr_fetcher.get_prs_by_release(repo_name, release_tag)
+        pr_urls = [pr["url"] for pr in prs]
+
+        # Analyze all PRs
+        results = self.analyze_prs_batch(pr_urls, extract_components, run_processors)
+
+        # Add release metadata
+        results["release_info"] = {
+            "repository": repo_name,
+            "release_tag": release_tag,
+            "total_prs": len(prs),
+        }
+
+        return results
+
+    def analyze_unreleased_prs(
+        self,
+        repo_name: str,
+        base_branch: str = "main",
+        extract_components: set[str] | None = None,
+        run_processors: list[str] | None = None,
+    ) -> dict[str, Any]:
+        """
+        Analyze all merged PRs that haven't been released yet.
+
+        Args:
+            repo_name: Repository name (e.g., "owner/repo")
+            base_branch: Base branch to check (default: "main")
+            extract_components: Components to extract
+            run_processors: Processors to run
+
+        Returns:
+            Dictionary with analysis results for unreleased PRs
+        """
+        logger.info(f"🚀 Analyzing unreleased PRs in {repo_name}")
+
+        # Fetch unreleased PRs
+        prs = self.pr_fetcher.get_unreleased_prs(repo_name, base_branch)
+        pr_urls = [pr["url"] for pr in prs]
+
+        # Analyze all PRs
+        results = self.analyze_prs_batch(pr_urls, extract_components, run_processors)
+
+        # Add unreleased metadata
+        results["unreleased_info"] = {
+            "repository": repo_name,
+            "base_branch": base_branch,
+            "total_unreleased_prs": len(prs),
+        }
+
+        return results
+
+    def analyze_prs_between_releases(
+        self,
+        repo_name: str,
+        from_tag: str,
+        to_tag: str,
+        extract_components: set[str] | None = None,
+        run_processors: list[str] | None = None,
+    ) -> dict[str, Any]:
+        """
+        Analyze PRs between two release tags.
+
+        Args:
+            repo_name: Repository name
+            from_tag: Starting release tag (exclusive)
+            to_tag: Ending release tag (inclusive)
+            extract_components: Components to extract
+            run_processors: Processors to run
+
+        Returns:
+            Dictionary with analysis results
+        """
+        logger.info(f"🔍 Analyzing PRs between {from_tag} and {to_tag} in {repo_name}")
+
+        # Fetch PRs between releases
+        prs = self.pr_fetcher.get_prs_between_releases(repo_name, from_tag, to_tag)
+        pr_urls = [pr["url"] for pr in prs]
+
+        # Analyze all PRs
+        results = self.analyze_prs_batch(pr_urls, extract_components, run_processors)
+
+        # Add version range metadata
+        results["version_range_info"] = {
+            "repository": repo_name,
+            "from_tag": from_tag,
+            "to_tag": to_tag,
+            "total_prs": len(prs),
+        }
+
+        return results
+
+    def _generate_batch_summary(self, pr_results: dict[str, Any]) -> dict[str, Any]:
+        """Generate summary statistics for batch PR analysis."""
+        summary = {
+            "total_analyzed": len(pr_results),
+            "by_risk_level": {"minimal": 0, "low": 0, "medium": 0, "high": 0},
+            "by_title_quality": {"poor": 0, "fair": 0, "good": 0, "excellent": 0},
+            "by_description_quality": {"poor": 0, "fair": 0, "good": 0, "excellent": 0},
+            "average_files_changed": 0,
+            "total_additions": 0,
+            "total_deletions": 0,
+        }
+
+        successful_prs = [
+            result
+            for result in pr_results.values()
+            if result.get("success", True) and "processing_results" in result
+        ]
+
+        files_changed_list = []
+
+        for pr_result in successful_prs:
+            # Process each component result
+            for proc_result in pr_result.get("processing_results", []):
+                if proc_result["success"]:
+                    component = proc_result["component"]
+                    data = proc_result["data"]
+
+                    # Code risk levels
+                    if component == "code_changes" and "risk_assessment" in data:
+                        risk_level = data["risk_assessment"].get(
+                            "risk_level", "minimal"
+                        )
+                        summary["by_risk_level"][risk_level] += 1
+
+                        # Code statistics
+                        if "change_stats" in data:
+                            stats = data["change_stats"]
+                            summary["total_additions"] += stats.get(
+                                "total_additions", 0
+                            )
+                            summary["total_deletions"] += stats.get(
+                                "total_deletions", 0
+                            )
+                            files_changed_list.append(stats.get("changed_files", 0))
+
+                    # Metadata quality
+                    elif component == "metadata":
+                        if "title_quality" in data:
+                            title_level = data["title_quality"].get(
+                                "quality_level", "poor"
+                            )
+                            summary["by_title_quality"][title_level] += 1
+
+                        if "description_quality" in data:
+                            desc_level = data["description_quality"].get(
+                                "quality_level", "poor"
+                            )
+                            summary["by_description_quality"][desc_level] += 1
+
+        # Calculate averages
+        if files_changed_list:
+            summary["average_files_changed"] = sum(files_changed_list) / len(
+                files_changed_list
+            )
+
         return summary

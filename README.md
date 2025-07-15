@@ -219,6 +219,111 @@ results = coordinator.process_components(
 )
 ```
 
+### Advanced PR Fetching
+
+The library provides modular fetchers for flexible PR retrieval:
+
+```python
+from src.pr_agents.pr_processing.fetchers import (
+    DateRangePRFetcher, 
+    ReleasePRFetcher,
+    LabelPRFetcher,
+    MultiRepoPRFetcher
+)
+from src.pr_agents.pr_processing.enrichers import PREnricher
+
+# Fetch PRs by date range
+date_fetcher = DateRangePRFetcher(github_token)
+prs = date_fetcher.fetch(
+    repo_name="owner/repo",
+    last_n_days=30,
+    state="merged"
+)
+
+# Enrich PRs with release status
+enricher = PREnricher(github_token)
+enriched_prs = enricher.enrich(prs)
+
+# Filter unreleased PRs
+unreleased = [pr for pr in enriched_prs if not pr.get("is_released")]
+```
+
+### Enhanced Coordinator with Date-Based Analysis
+
+```python
+from src.pr_agents.pr_processing.coordinator_enhanced import EnhancedPRCoordinator
+
+coordinator = EnhancedPRCoordinator(github_token)
+
+# Analyze PRs from the last month with release status
+results = coordinator.fetch_and_analyze_by_date(
+    repo_name="owner/repo",
+    start_date=datetime(2024, 1, 1),
+    end_date=datetime(2024, 1, 31),
+    extract_components={"metadata", "code_changes"},
+    enrich=True  # Adds release status, time metrics
+)
+
+# Multi-repository analysis
+multi_results = coordinator.fetch_and_analyze_multi_repo(
+    repo_names=["owner/repo1", "owner/repo2", "owner/repo3"],
+    fetch_type="date",
+    last_n_days=30,
+    enrich=True
+)
+
+# Compare released vs unreleased PRs
+comparison = coordinator.get_release_comparison(
+    repo_name="owner/repo",
+    days=30
+)
+print(f"Released: {comparison['released']['percentage']}%")
+print(f"Unreleased: {comparison['unreleased']['count']} PRs")
+
+# Analyze PR velocity across repositories
+velocity = coordinator.analyze_pr_velocity(
+    repo_names=["owner/repo1", "owner/repo2"],
+    days=90
+)
+```
+
+### Batch Processing & Release Analysis
+
+```python
+# Analyze all PRs in a specific release
+release_results = coordinator.analyze_release_prs(
+    "owner/repo",
+    "v1.2.3",  # Release tag
+    extract_components={"metadata", "code_changes"}
+)
+
+# Analyze unreleased PRs (merged but not in any release)
+unreleased = coordinator.analyze_unreleased_prs(
+    "owner/repo",
+    base_branch="main"  # or "master"
+)
+
+# Analyze PRs between two releases
+version_diff = coordinator.analyze_prs_between_releases(
+    "owner/repo",
+    from_tag="v1.2.0",
+    to_tag="v1.2.3"
+)
+
+# Batch analyze specific PR URLs
+batch_results = coordinator.analyze_prs_batch([
+    "https://github.com/owner/repo/pull/123",
+    "https://github.com/owner/repo/pull/124",
+    "https://github.com/owner/repo/pull/125"
+])
+
+# Access batch summary statistics
+summary = batch_results["summary"]
+print(f"Average files changed: {summary['average_files_changed']:.1f}")
+print(f"Risk distribution: {summary['by_risk_level']}")
+print(f"Title quality: {summary['by_title_quality']}")
+```
+
 ## 📚 Documentation
 
 Comprehensive documentation is available in the [`docs/`](docs/) directory:

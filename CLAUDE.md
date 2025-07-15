@@ -180,8 +180,28 @@ Update README.md only when changes affect:
 ```python
 from src.pr_agents.pr_processing.coordinator import PRCoordinator
 
-coordinator = PRCoordinator()
-results = coordinator.process_pr(pr_data, components=["metadata", "code"])
+coordinator = PRCoordinator(github_token="your-token")
+results = coordinator.analyze_pr("https://github.com/owner/repo/pull/123")
+```
+
+### Batch Processing & Release Analysis
+```python
+# Analyze all PRs in a release
+release_results = coordinator.analyze_release_prs("owner/repo", "v1.2.3")
+
+# Analyze unreleased PRs
+unreleased = coordinator.analyze_unreleased_prs("owner/repo", base_branch="main")
+
+# Analyze PRs between releases
+version_diff = coordinator.analyze_prs_between_releases(
+    "owner/repo", from_tag="v1.0.0", to_tag="v1.1.0"
+)
+
+# Batch analyze specific PRs
+batch = coordinator.analyze_prs_batch([
+    "https://github.com/owner/repo/pull/1",
+    "https://github.com/owner/repo/pull/2"
+])
 ```
 
 ### Component Isolation

@@ -11,9 +11,11 @@ from .models import (
     RepositoryInfo,
     ReviewData,
 )
+from .pr_fetcher import PRFetcher
 
 __all__ = [
     "PRCoordinator",
+    "PRFetcher",
     "PRData",
     "PRMetadata",
     "CodeChanges",

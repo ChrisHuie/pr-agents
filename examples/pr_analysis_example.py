@@ -61,7 +61,9 @@ def main():
                         print(f"Title score: {title_quality['score']}/100")
                     if "description_quality" in result.data:
                         desc_quality = result.data["description_quality"]
-                        print(f"Description quality level: {desc_quality['quality_level']}")
+                        print(
+                            f"Description quality level: {desc_quality['quality_level']}"
+                        )
                         print(f"Description score: {desc_quality['score']}/100")
 
         # Example 4: Complete analysis with all components
