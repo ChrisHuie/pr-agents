@@ -6,6 +6,40 @@ PR Agents is built on principles of modularity, type safety, and component isola
 
 ## High-Level Architecture
 
+### Pipeline Flow
+
+```
+GitHub API → Fetchers → Coordinators → Extractors → Processors → Output Formatters
+                              ↓
+                    ComponentManager (lifecycle)
+```
+
+### Modular Coordinator Architecture
+
+The system uses a modular coordinator pattern to maintain clean separation of concerns:
+
+1. **PRCoordinator** (Facade)
+   - Main entry point maintaining backward compatibility
+   - Delegates to specialized sub-coordinators
+   - Integrates output formatting system
+
+2. **SinglePRCoordinator**
+   - Manages individual PR analysis pipeline
+   - Coordinates extraction and processing
+   - Generates analysis summaries
+
+3. **BatchCoordinator**
+   - Handles batch operations
+   - Release-based PR analysis
+   - Date range and multi-repo analysis
+
+4. **ComponentManager**
+   - Manages lifecycle of extractors and processors
+   - Provides component registry
+   - Maps data between pipeline stages
+
+### Original Component Diagram
+
 ```
 ┌─────────────────┐     ┌──────────────┐     ┌─────────────────┐
 │   GitHub API    │────▶│  Extractors  │────▶│ Pydantic Models │
@@ -39,11 +73,39 @@ Analyze extracted data to provide insights:
 - **RepoProcessor**: Health scoring, structure analysis
 - **AccuracyValidator**: Cross-component validation
 
-### 4. Coordinator
-Orchestrates the extraction and processing pipeline:
-- Manages component selection
-- Handles data flow between stages
-- Ensures isolation boundaries
+### 4. Coordinators
+Orchestrate the extraction and processing pipeline through specialized modules:
+
+#### PRCoordinator (Main Facade)
+- Entry point for all PR analysis operations
+- Delegates to appropriate sub-coordinators
+- Maintains backward compatibility
+- Integrates output formatting
+
+#### SinglePRCoordinator
+- Handles individual PR analysis
+- Manages extraction pipeline
+- Coordinates processor execution
+- Generates PR summaries
+
+#### BatchCoordinator  
+- Manages batch PR operations
+- Analyzes PRs by release tags
+- Processes date-based PR ranges
+- Handles multi-repository analysis
+
+#### ComponentManager
+- Initializes extractors and processors
+- Maintains component registry
+- Maps data between components
+- Ensures proper lifecycle management
+
+### 5. Output System
+Formats and exports analysis results:
+- **OutputManager**: Orchestrates formatting and file operations
+- **MarkdownFormatter**: Rich markdown output with sections
+- **JSONFormatter**: Clean JSON with data sanitization
+- **TextFormatter**: Plain text for simple reports
 
 ## Key Design Patterns
 

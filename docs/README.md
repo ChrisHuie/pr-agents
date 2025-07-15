@@ -6,6 +6,8 @@ Welcome to the PR Agents documentation. This project provides modular Python too
 
 ### [Architecture](./architecture/)
 - [System Overview](./architecture/overview.md) - High-level architecture and design principles
+- [Coordinator System](./architecture/coordinator-system.md) - Modular coordinator architecture
+- [Output System](./architecture/output-system.md) - Flexible output formatting framework
 - [Component Isolation](./architecture/component-isolation.md) - How components maintain independence
 - [Data Flow](./architecture/data-flow.md) - How data moves through the system
 
@@ -37,7 +39,9 @@ Each component operates independently with no shared state or dependencies betwe
 
 ### Processing Pipeline
 ```
-GitHub API → Extractors → Pydantic Models → Processors → Analysis Results
+GitHub API → Fetchers → Coordinators → Extractors → Processors → Output Formatters
+                              ↓
+                    ComponentManager (lifecycle)
 ```
 
 ### Configuration System

@@ -2,7 +2,16 @@
 
 ## Overview
 
-The `PRCoordinator` is the central orchestrator for PR analysis, managing the extraction and processing pipeline with strict component isolation. It now includes support for batch processing and release-based PR analysis.
+The `PRCoordinator` is the main facade for PR analysis, providing a unified interface while delegating to specialized sub-coordinators. It manages the extraction and processing pipeline with strict component isolation and includes support for batch processing, release-based PR analysis, and multiple output formats.
+
+## Architecture
+
+The coordinator system follows a modular design:
+- **PRCoordinator**: Main facade maintaining backward compatibility
+- **SinglePRCoordinator**: Handles individual PR analysis
+- **BatchCoordinator**: Manages batch operations
+- **ComponentManager**: Manages component lifecycle
+- **OutputManager**: Handles result formatting and export
 
 ## Class: PRCoordinator
 
@@ -74,6 +83,42 @@ def process_components(
 - `pr_data`: Extracted PR data
 - `processors`: List of processors to run
   - Valid: `["metadata", "code_changes", "repository"]`
+
+## Output Methods
+
+### analyze_pr_and_save
+
+Analyzes a PR and saves the results to a file.
+
+```python
+def analyze_pr_and_save(
+    pr_url: str,
+    output_path: str | Path,
+    output_format: str = "markdown",
+    extract_components: set[str] | None = None,
+    run_processors: list[str] | None = None
+) -> tuple[dict[str, Any], Path]
+```
+
+**Parameters:**
+- `pr_url`: GitHub PR URL
+- `output_path`: Path for output file (extension added automatically)
+- `output_format`: Output format ("markdown", "json", "text")
+- `extract_components`: Components to extract
+- `run_processors`: Processors to run
+
+**Returns:**
+Tuple of (analysis results, saved file path)
+
+**Example:**
+```python
+results, path = coordinator.analyze_pr_and_save(
+    "https://github.com/owner/repo/pull/123",
+    "pr_analysis",
+    output_format="markdown"  # Creates pr_analysis.md
+)
+print(f"Analysis saved to: {path}")
+```
 
 ## Batch Processing Methods
 

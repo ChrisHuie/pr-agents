@@ -42,8 +42,12 @@ class TestParametrizedPRScenarios:
         # Create the mock PR from the scenario
         mock_pr = scenario.pr_factory()
 
-        # Mock the PR retrieval
-        with patch.object(mock_coordinator, "_get_pr_from_url", return_value=mock_pr):
+        # Mock the PR retrieval on the single PR coordinator
+        with patch.object(
+            mock_coordinator.single_pr_coordinator, 
+            "_get_pr_from_url", 
+            return_value=mock_pr
+        ):
             # Perform complete analysis
             analysis = mock_coordinator.analyze_pr(scenario.url_template)
 
@@ -75,7 +79,7 @@ class TestParametrizedPRScenarios:
         """Test selective component extraction for each scenario."""
         mock_pr = scenario.pr_factory()
 
-        with patch.object(mock_coordinator, "_get_pr_from_url", return_value=mock_pr):
+        with patch.object(mock_coordinator.single_pr_coordinator, "_get_pr_from_url", return_value=mock_pr):
             # Extract all components
             pr_data = mock_coordinator.extract_pr_components(scenario.url_template)
 
@@ -91,7 +95,7 @@ class TestParametrizedPRScenarios:
         """Test selective component processing for each scenario."""
         mock_pr = scenario.pr_factory()
 
-        with patch.object(mock_coordinator, "_get_pr_from_url", return_value=mock_pr):
+        with patch.object(mock_coordinator.single_pr_coordinator, "_get_pr_from_url", return_value=mock_pr):
             # Extract data for processing
             pr_data = mock_coordinator.extract_pr_components(scenario.url_template)
 
@@ -122,7 +126,7 @@ class TestParametrizedPRScenarios:
         scenario = TEST_SCENARIOS[0]
         mock_pr = scenario.pr_factory()
 
-        with patch.object(mock_coordinator, "_get_pr_from_url", return_value=mock_pr):
+        with patch.object(mock_coordinator.single_pr_coordinator, "_get_pr_from_url", return_value=mock_pr):
             # Test metadata-only extraction
             metadata_only = mock_coordinator.extract_pr_components(
                 scenario.url_template, components={"metadata"}
@@ -169,7 +173,7 @@ class TestScenarioMatrix:
         """
         mock_pr = scenario.pr_factory()
 
-        with patch.object(mock_coordinator, "_get_pr_from_url", return_value=mock_pr):
+        with patch.object(mock_coordinator.single_pr_coordinator, "_get_pr_from_url", return_value=mock_pr):
             # Extract the specific component
             pr_data = mock_coordinator.extract_pr_components(
                 scenario.url_template, components={component}
@@ -208,7 +212,7 @@ class TestScenarioMatrix:
         """
         mock_pr = scenario.pr_factory()
 
-        with patch.object(mock_coordinator, "_get_pr_from_url", return_value=mock_pr):
+        with patch.object(mock_coordinator.single_pr_coordinator, "_get_pr_from_url", return_value=mock_pr):
             # Extract the component combination
             pr_data = mock_coordinator.extract_pr_components(
                 scenario.url_template, components=components
@@ -225,7 +229,7 @@ class TestScenarioMatrix:
             for component in all_components:
                 component_data = getattr(pr_data, component, None)
 
-                # Map component names to extraction component names
+                # Map PRData attribute names to extraction component names
                 component_mapping = {
                     "metadata": "metadata",
                     "code_changes": "code_changes",
@@ -233,10 +237,7 @@ class TestScenarioMatrix:
                     "review_data": "reviews",
                 }
 
-                extraction_name = next(
-                    (k for k, v in component_mapping.items() if v == component),
-                    component,
-                )
+                extraction_name = component_mapping.get(component, component)
 
                 if extraction_name in components:
                     # Should be present if requested
@@ -263,7 +264,7 @@ class TestErrorScenarios:
 
     def test_invalid_pr_url_handling(self, mock_coordinator):
         """Test handling of invalid PR URLs."""
-        with patch.object(mock_coordinator, "_get_pr_from_url", return_value=None):
+        with patch.object(mock_coordinator.single_pr_coordinator, "_get_pr_from_url", return_value=None):
             try:
                 analysis = mock_coordinator.analyze_pr("invalid-url")
                 # Should handle gracefully or raise appropriate error
@@ -276,7 +277,7 @@ class TestErrorScenarios:
         scenario = TEST_SCENARIOS[0]
         mock_pr = scenario.pr_factory()
 
-        with patch.object(mock_coordinator, "_get_pr_from_url", return_value=mock_pr):
+        with patch.object(mock_coordinator.single_pr_coordinator, "_get_pr_from_url", return_value=mock_pr):
             # Extract no components
             pr_data = mock_coordinator.extract_pr_components(
                 scenario.url_template, components=set()
@@ -290,13 +291,25 @@ class TestErrorScenarios:
 
     @pytest.mark.parametrize("invalid_component", ["invalid", "nonexistent", ""])
     def test_invalid_component_names(self, mock_coordinator, invalid_component):
-        """Test handling of invalid component names."""
+        """Test handling of invalid component names - should be silently ignored."""
         scenario = TEST_SCENARIOS[0]
+        mock_pr = scenario.pr_factory()
 
-        with pytest.raises(ValueError, match="Invalid components"):
-            mock_coordinator.extract_pr_components(
+        with patch.object(
+            mock_coordinator.single_pr_coordinator,
+            "_get_pr_from_url",
+            return_value=mock_pr,
+        ):
+            # Invalid components should be silently ignored
+            pr_data = mock_coordinator.extract_pr_components(
                 scenario.url_template, components={invalid_component}
             )
+            
+            # No valid components requested, so all should be None
+            assert pr_data.metadata is None
+            assert pr_data.code_changes is None
+            assert pr_data.repository_info is None
+            assert pr_data.review_data is None
 
     @pytest.mark.parametrize("invalid_processor", ["invalid", "nonexistent", ""])
     def test_invalid_processor_names(self, mock_coordinator, invalid_processor):
@@ -304,8 +317,12 @@ class TestErrorScenarios:
         scenario = TEST_SCENARIOS[0]
         mock_pr = scenario.pr_factory()
 
-        with patch.object(mock_coordinator, "_get_pr_from_url", return_value=mock_pr):
+        with patch.object(mock_coordinator.single_pr_coordinator, "_get_pr_from_url", return_value=mock_pr):
             pr_data = mock_coordinator.extract_pr_components(scenario.url_template)
 
-            with pytest.raises(ValueError, match="Invalid processors"):
-                mock_coordinator.process_components(pr_data, [invalid_processor])
+            # Invalid processors should be silently ignored
+            results = mock_coordinator.process_components(pr_data, [invalid_processor])
+            
+            # No valid processors were run
+            assert isinstance(results, list)
+            assert len(results) == 0

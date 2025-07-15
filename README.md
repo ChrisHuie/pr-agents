@@ -13,8 +13,22 @@ A modular Python library for analyzing GitHub Pull Requests with strict componen
 ## 🏗️ Architecture Overview
 
 ```
-External API (GitHub) → Pydantic Models → Extractors → Dataclass Results → Processors → Analysis
+GitHub API → Fetchers → Coordinators → Extractors → Processors → Output Formatters
+                              ↓
+                    ComponentManager (lifecycle)
 ```
+
+### Pipeline Architecture
+
+1. **Fetchers**: Retrieve PR data from GitHub API
+2. **Coordinators**: Orchestrate the analysis pipeline
+   - `PRCoordinator`: Main facade for backward compatibility
+   - `SinglePRCoordinator`: Handles individual PR analysis
+   - `BatchCoordinator`: Manages batch operations (releases, date ranges)
+   - `ComponentManager`: Manages extractor/processor lifecycle
+3. **Extractors**: Transform GitHub data into structured components
+4. **Processors**: Analyze extracted data to generate insights
+5. **Output Formatters**: Export results in various formats (Markdown, JSON, Text)
 
 ### Design Principles
 
@@ -23,6 +37,8 @@ External API (GitHub) → Pydantic Models → Extractors → Dataclass Results �
 3. **Dependency Injection**: Components are injected rather than hard-coded
 4. **Interface-Based**: Easy to mock and extend
 5. **Immutable Processing**: Results are immutable dataclass instances
+6. **Single Responsibility**: Each coordinator has one focused purpose
+7. **Facade Pattern**: Main coordinator maintains API compatibility
 
 ## 📁 Project Structure
 
@@ -33,7 +49,20 @@ pr-agents/
 │   │   ├── __init__.py                    # Public API exports
 │   │   ├── models.py                      # Pydantic models (external boundaries)
 │   │   ├── analysis_models.py             # Dataclass models (internal results)
-│   │   ├── coordinator.py                 # Orchestrates processing pipeline
+│   │   ├── coordinator.py                 # Main facade coordinator
+│   │   ├── pr_fetcher.py                  # GitHub PR data fetching
+│   │   │
+│   │   ├── coordinators/                  # Modular coordinator system
+│   │   │   ├── __init__.py
+│   │   │   ├── base.py                    # Base coordinator interface
+│   │   │   ├── component_manager.py       # Component lifecycle management
+│   │   │   ├── single_pr.py               # Single PR analysis coordinator
+│   │   │   └── batch.py                   # Batch operations coordinator
+│   │   │
+│   │   ├── analysis/                      # Analysis utilities
+│   │   │   ├── __init__.py
+│   │   │   ├── summary_builder.py         # Summary generation logic
+│   │   │   └── result_formatter.py        # Result formatting for output
 │   │   │
 │   │   ├── extractors/                    # Component extraction (GitHub API → Python)
 │   │   │   ├── __init__.py
@@ -49,6 +78,14 @@ pr-agents/
 │   │       ├── metadata_processor.py      # Quality scoring, pattern detection
 │   │       ├── code_processor.py          # Risk assessment, pattern analysis
 │   │       └── repo_processor.py          # Health scoring, language analysis
+│   │
+│   ├── output/                            # Output formatting system
+│   │   ├── __init__.py
+│   │   ├── base.py                        # Base output formatter interface
+│   │   ├── manager.py                     # Output manager orchestration
+│   │   ├── markdown.py                    # Markdown output formatter
+│   │   ├── json_formatter.py              # JSON output formatter
+│   │   └── text.py                        # Plain text output formatter
 │   │
 │   └── config/                            # Configuration system
 │       ├── __init__.py
@@ -201,6 +238,35 @@ analysis = coordinator.analyze_pr("https://github.com/owner/repo/pull/123")
 # Access structured results
 metadata_quality = analysis["processing_results"][0]["data"]["metadata_quality"]
 print(f"PR Quality: {metadata_quality['quality_level']}")
+```
+
+### Output Formatting
+
+```python
+# Analyze and save to file with automatic format detection
+results, output_path = coordinator.analyze_pr_and_save(
+    "https://github.com/owner/repo/pull/123",
+    output_path="pr_analysis",  # Extension added based on format
+    output_format="markdown"     # Options: markdown, json, text
+)
+
+# Use the output manager directly for custom formatting
+from pr_agents.output import OutputManager
+
+output_manager = OutputManager()
+
+# Format and save results in multiple formats
+for format in ["markdown", "json", "text"]:
+    saved_path = output_manager.save(
+        data=results,
+        output_path=f"analysis_{format}",
+        format=format
+    )
+    print(f"Saved {format} to: {saved_path}")
+
+# Get formatted string without saving
+formatted_content = output_manager.format(results, "markdown")
+print(formatted_content)
 ```
 
 ### Selective Processing

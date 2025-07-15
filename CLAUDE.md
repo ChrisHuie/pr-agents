@@ -1,12 +1,125 @@
 # PR Agents Project
 
+## Quick Reference
+
+### Essential Commands
+```bash
+# Development workflow
+uv run black .              # Format code
+uv run ruff check .         # Lint code  
+uv run pytest              # Run tests
+uv run pytest -m unit      # Run unit tests only
+
+# Configuration management
+python -m src.pr_agents.config.cli validate  # Validate configs
+python -m src.pr_agents.config.cli list      # List repositories
+```
+
+### Key Components
+- **Fetchers**: `src/pr_agents/pr_processing/fetchers/` - Retrieve PR data from GitHub
+- **Coordinators**: `src/pr_agents/pr_processing/coordinators/` - Orchestrate analysis
+- **Extractors**: `src/pr_agents/pr_processing/extractors/` - Extract component data
+- **Processors**: `src/pr_agents/pr_processing/processors/` - Analyze data
+- **Output**: `src/pr_agents/output/` - Format and export results
+
+## Table of Contents
+1. [Project Overview](#project-overview)
+2. [Architecture](#architecture)
+3. [Key Design Principles](#key-design-principles)
+4. [Code Quality Standards](#code-quality-standards)
+5. [Development Workflow](#development-workflow)
+6. [Dependencies](#dependencies)
+7. [Git Workflow](#git-workflow)
+8. [Logging Standards](#logging-standards)
+9. [Testing Standards](#testing-standards)
+10. [Project Structure](#project-structure)
+11. [Analysis Algorithms](#analysis-algorithms)
+12. [Configuration](#configuration)
+13. [Configuration System](#configuration-system)
+14. [Code Documentation Standards](#code-documentation-standards)
+15. [Usage Patterns](#usage-patterns)
+16. [Fetcher System Details](#fetcher-system-details)
+17. [Common Development Tasks](#common-development-tasks)
+18. [Performance Considerations](#performance-considerations)
+19. [Security Considerations](#security-considerations)
+20. [PR Metadata-Code Accuracy Validator](#pr-metadata-code-accuracy-validator)
+21. [Additional Components](#additional-components-for-enhanced-pr-analysis)
+22. [PR Analysis Enhancement Components](#pr-analysis-enhancement-components)
+23. [Error Handling Patterns](#error-handling-patterns)
+24. [Performance Optimization](#performance-optimization)
+25. [Debugging Tips](#debugging-tips)
+26. [Future Enhancements](#future-enhancements)
+
 ## Project Overview
 PR Agents is a modular Python library for analyzing GitHub Pull Requests with strict component isolation. The project emphasizes type safety, preventing "context bleeding" between different analysis components, and provides comprehensive PR insights through a structured pipeline architecture.
 
+### Project Goals
+- **Modular Analysis**: Each PR component (metadata, code, repository, reviews) analyzed independently
+- **Type Safety**: Strong typing throughout with Pydantic and dataclasses
+- **Extensibility**: Easy to add new extractors, processors, and output formats
+- **Performance**: Efficient processing of large PRs and batch operations
+- **Flexibility**: Support for various output formats and analysis configurations
+
 ### Architecture
 ```
-GitHub API → Pydantic Models → Extractors → Dataclass Results → Processors → Analysis
+GitHub API → Fetchers → Coordinators → Extractors → Processors → Output Formatters
+                              ↓
+                    ComponentManager (lifecycle)
 ```
+
+#### Pipeline Components
+
+1. **Fetchers**: Retrieve PR data from GitHub API
+   - Handle different query patterns (release, date, label)
+   - Manage API rate limiting
+   - Return standardized PR data
+
+2. **Coordinators**: Orchestrate the analysis pipeline
+   - Route requests to appropriate sub-coordinators
+   - Manage component lifecycle
+   - Handle error aggregation
+
+3. **Extractors**: Transform GitHub data into components
+   - Strict isolation per component
+   - No cross-component dependencies
+   - Return structured data
+
+4. **Processors**: Analyze extracted data
+   - Pure functions for analysis
+   - Generate insights and scores
+   - No external API calls
+
+5. **Output Formatters**: Export results
+   - Multiple format support
+   - Clean data serialization
+   - File management
+
+#### Modular Coordinator System
+The project uses a modular coordinator architecture to maintain separation of concerns:
+
+1. **PRCoordinator** (`coordinator.py`): Main facade maintaining backward compatibility
+   - Delegates to specialized sub-coordinators
+   - Integrates output formatting
+   - ~328 lines (reduced from 725)
+
+2. **SinglePRCoordinator** (`coordinators/single_pr.py`): Handles individual PR analysis
+   - Manages extraction pipeline
+   - Coordinates processing flow
+   - Generates summaries
+
+3. **BatchCoordinator** (`coordinators/batch.py`): Manages batch operations
+   - Release-based analysis
+   - Date range analysis  
+   - Multi-PR operations
+
+4. **ComponentManager** (`coordinators/component_manager.py`): Component lifecycle
+   - Initializes extractors and processors
+   - Provides component registry
+   - Maps data between components
+
+5. **Analysis Utilities**:
+   - `SummaryBuilder`: Pure functions for generating summaries
+   - `ResultFormatter`: Formats results for output systems
 
 ### Key Design Principles
 - **Strict Component Isolation**: Each component (metadata, code changes, repository info, reviews) is extracted and processed in complete isolation
@@ -84,18 +197,41 @@ If any of these commands fail, fix the issues before considering the task comple
    - `models.py`: Pydantic models for external API data
    - `analysis_models.py`: Dataclass models for processing results
 
-2. **Extractors** (`src/pr_agents/pr_processing/extractors/`)
+2. **Fetchers** (`src/pr_agents/pr_processing/fetchers/`)
+   - `base.py`: Base fetcher interface for all PR fetchers
+   - `date_range.py`: Fetch PRs within date ranges
+   - `release.py`: Fetch PRs by release tags
+   - `label.py`: Fetch PRs by labels
+   - `multi_repo.py`: Fetch PRs across multiple repositories
+   - `pr_fetcher.py`: Original fetcher with legacy methods
+
+3. **Extractors** (`src/pr_agents/pr_processing/extractors/`)
    - `metadata.py`: Extracts PR title, description, labels, author
    - `code_changes.py`: Extracts diffs, additions/deletions, patches
    - `repository.py`: Extracts repo info, languages, branches, topics
    - `reviews.py`: Extracts reviews, comments, approval status
 
-3. **Processors** (`src/pr_agents/pr_processing/processors/`)
+4. **Processors** (`src/pr_agents/pr_processing/processors/`)
    - `metadata_processor.py`: Title quality scoring, description quality scoring
    - `code_processor.py`: Risk assessment, pattern detection, file analysis
    - `repo_processor.py`: Health scoring, language analysis, branch patterns
 
-4. **Coordinator** (`coordinator.py`): Orchestrates the extraction and processing pipeline
+5. **Coordinators** (`src/pr_agents/pr_processing/coordinators/`)
+   - `base.py`: Base coordinator interface
+   - `component_manager.py`: Component lifecycle management
+   - `single_pr.py`: Single PR analysis orchestration
+   - `batch.py`: Batch operations (releases, date ranges)
+
+6. **Analysis** (`src/pr_agents/pr_processing/analysis/`)
+   - `summary_builder.py`: Generate summaries and statistics
+   - `result_formatter.py`: Format results for output
+
+7. **Output System** (`src/pr_agents/output/`)
+   - `base.py`: Base output formatter interface
+   - `manager.py`: Output orchestration and file management
+   - `markdown.py`: Markdown formatting with sections
+   - `json_formatter.py`: JSON serialization with data cleaning
+   - `text.py`: Plain text formatting
 
 ### Analysis Algorithms
 
@@ -142,17 +278,29 @@ Separate scoring for title and description on independent 1-100 scales:
 ### Environment Variables
 Create a `.env` file with:
 ```
-GITHUB_TOKEN=your_github_token  # Required for GitHub API access
-OPENAI_API_KEY=your_openai_key  # Optional: For OpenAI integration
-GEMINI_API_KEY=your_gemini_key  # Optional: For Google Gemini
-ANTHROPIC_API_KEY=your_anthropic_key  # Optional: For Claude/Anthropic
-GITHUB_COPILOT_API_KEY=your_copilot_key  # Optional: For GitHub Copilot
+# Required
+GITHUB_TOKEN=your_github_token  # GitHub API access
+
+# Optional AI Integrations (future)
+OPENAI_API_KEY=your_openai_key  # For OpenAI integration
+GEMINI_API_KEY=your_gemini_key  # For Google Gemini
+ANTHROPIC_API_KEY=your_anthropic_key  # For Claude/Anthropic
+GITHUB_COPILOT_API_KEY=your_copilot_key  # For GitHub Copilot
+
+# Logging Configuration
+PR_AGENTS_ENV=development  # Options: development, staging, production
+LOG_LEVEL=INFO  # Options: DEBUG, INFO, WARNING, ERROR
+LOG_SHOW_FUNCTIONS=true  # Show function names in logs
+LOG_SHOW_DATA_FLOW=true  # Show data flow details
+LOG_FILE=/tmp/pr-agents.log  # Optional log file path
 ```
 
 ### Test Configuration
 - Test markers defined in pytest.ini
 - Use appropriate markers: unit, integration, parametrized, matrix, live, slow
 - Run specific test sets: `uv run pytest -m unit`
+- Skip live tests: `uv run pytest -m "not live"`
+- Run with coverage: `uv run pytest --cov=src/pr_agents --cov-report=html`
 
 ## Code Documentation Standards
 All code must be consistently documented inline:
@@ -184,6 +332,40 @@ coordinator = PRCoordinator(github_token="your-token")
 results = coordinator.analyze_pr("https://github.com/owner/repo/pull/123")
 ```
 
+### Using Fetchers Directly
+```python
+from src.pr_agents.pr_processing.fetchers import ReleasePRFetcher, DateRangePRFetcher
+from datetime import datetime, timedelta
+
+# Fetch PRs by release
+release_fetcher = ReleasePRFetcher(github_token)
+prs = release_fetcher.fetch(
+    repo_name="owner/repo",
+    release_tag="v1.2.3"
+)
+
+# Fetch PRs by date range
+date_fetcher = DateRangePRFetcher(github_token)
+end_date = datetime.now()
+start_date = end_date - timedelta(days=30)
+prs = date_fetcher.fetch(
+    repo_name="owner/repo",
+    start_date=start_date,
+    end_date=end_date,
+    state="merged"
+)
+
+# Fetch PRs by label
+from src.pr_agents.pr_processing.fetchers import LabelPRFetcher
+
+label_fetcher = LabelPRFetcher(github_token)
+bug_prs = label_fetcher.fetch(
+    repo_name="owner/repo",
+    label="bug",
+    state="closed"
+)
+```
+
 ### Batch Processing & Release Analysis
 ```python
 # Analyze all PRs in a release
@@ -204,6 +386,23 @@ batch = coordinator.analyze_prs_batch([
 ])
 ```
 
+### Output Formatting
+```python
+# Analyze and save to file
+results, path = coordinator.analyze_pr_and_save(
+    "https://github.com/owner/repo/pull/123",
+    output_path="analysis",
+    output_format="markdown"  # Options: markdown, json, text
+)
+
+# Use output manager directly
+from src.pr_agents.output import OutputManager
+
+output_mgr = OutputManager()
+for format in ["markdown", "json", "text"]:
+    output_mgr.save(results, f"report_{format}", format)
+```
+
 ### Component Isolation
 Each component can be processed independently:
 - Extract only what you need
@@ -217,6 +416,55 @@ Each component can be processed independently:
 3. Add corresponding analysis models as dataclasses
 4. Update constants for new component names
 5. Add comprehensive tests for new components
+6. Register new components in ComponentManager
+7. Update documentation
+
+### Adding a New Output Format
+1. Create formatter class inheriting from BaseOutputFormatter
+2. Implement `format()` and `get_file_extension()` methods
+3. Register in OutputManager
+4. Add tests for edge cases
+5. Document format structure
+
+## Configuration System
+
+### Repository Configuration
+The project uses a multi-file JSON configuration system:
+
+```
+config/
+├── repositories.json          # Master list of repositories
+├── schema/                    # JSON schemas for validation
+│   └── repository.schema.json
+└── repositories/              # Individual repo configurations
+    ├── prebid/
+    │   ├── prebid-js.json
+    │   ├── prebid-server.json
+    │   └── ...
+    └── shared/               # Shared base configurations
+```
+
+### Configuration Features
+- **Inheritance**: Repositories can extend shared base configurations
+- **Version Overrides**: Handle version-specific behaviors
+- **Pattern Matching**: Flexible module detection patterns
+- **Validation**: Schema-based validation with strict mode
+- **Hot Reload**: Automatic configuration reload in development
+
+### CLI Tools
+```bash
+# Validate all configurations
+python -m src.pr_agents.config.cli validate
+
+# List all configured repositories
+python -m src.pr_agents.config.cli list
+
+# Watch for configuration changes
+python -m src.pr_agents.config.cli watch
+
+# Test pattern matching
+python -m src.pr_agents.config.cli test-pattern "modules/exampleBidAdapter.js"
+```
 
 ## Common Development Tasks
 
@@ -473,6 +721,56 @@ These components work together while maintaining isolation:
 3. **Rate limiting** is used by extractors, not processors
 4. **Accuracy validation** uses the results from all components without direct dependencies
 
+## Fetcher System Details
+
+### Fetcher Architecture
+The fetcher system provides flexible ways to retrieve groups of PRs:
+
+#### Base Fetcher Interface
+```python
+class BasePRFetcher(ABC):
+    @abstractmethod
+    def fetch(self, **kwargs) -> list[dict[str, Any]]:
+        """Fetch PRs based on implementation-specific criteria."""
+        pass
+```
+
+#### Available Fetchers
+1. **PRFetcher** (Legacy)
+   - Original implementation with multiple methods
+   - Methods: `get_prs_by_release()`, `get_unreleased_prs()`, etc.
+   - Used internally by BatchCoordinator
+
+2. **ReleasePRFetcher**
+   - Fetches PRs included in a specific release
+   - Handles date range calculation between releases
+   - Supports release comparison
+
+3. **DateRangePRFetcher**
+   - Fetches PRs within specified date ranges
+   - Supports various PR states (open, closed, merged)
+   - Useful for time-based analysis
+
+4. **LabelPRFetcher**
+   - Fetches PRs with specific labels
+   - Supports multiple labels (AND/OR logic)
+   - Useful for categorized analysis
+
+5. **MultiRepoPRFetcher**
+   - Fetches PRs across multiple repositories
+   - Aggregates results from different repos
+   - Supports parallel fetching (future)
+
+### Fetcher Usage Patterns
+```python
+# Direct fetcher usage
+fetcher = ReleasePRFetcher(github_token)
+prs = fetcher.fetch(repo_name="owner/repo", release_tag="v1.0.0")
+
+# Through coordinator (recommended)
+results = coordinator.analyze_release_prs("owner/repo", "v1.0.0")
+```
+
 ## PR Analysis Enhancement Components
 
 ### Overview
@@ -572,3 +870,86 @@ Lightweight configuration system defining where different module types are locat
 - **Isolation Maintained**: Each component operates independently
 - **Extensibility**: Easy to add new repos by adding YAML/JSON files
 - **Composability**: Components can be used together or separately
+
+## Error Handling Patterns
+
+### Extraction Errors
+- Extractors return `None` on failure
+- Errors logged but don't stop pipeline
+- Each component fails independently
+
+### Processing Errors
+- Processors return ProcessingResult with success=False
+- Error details in the errors field
+- Processing continues for other components
+
+### Batch Processing Errors
+- Individual PR failures don't stop batch
+- Failed PRs tracked in results
+- Summary includes failure statistics
+
+## Performance Optimization
+
+### API Rate Limits
+- GitHub: 5000 requests/hour (authenticated)
+- Consider batch size for large operations
+- Future: Rate limit manager implementation
+
+### Memory Management
+- Process PRs one at a time in batches
+- Stream large outputs when possible
+- Clear extracted data after processing
+
+### Caching Strategy
+- Configuration cached on first load
+- Component registry cached
+- PR data not cached (always fresh)
+
+## Debugging Tips
+
+### Enable Debug Logging
+```bash
+export LOG_LEVEL=DEBUG
+export LOG_SHOW_FUNCTIONS=true
+export LOG_SHOW_DATA_FLOW=true
+python your_script.py
+```
+
+### Common Issues
+1. **Empty extraction results**: Check GitHub token permissions
+2. **Processing failures**: Verify data structure matches expectations
+3. **Output errors**: Ensure data is serializable
+4. **Test failures**: Mock objects may need updating
+
+### Useful Debug Commands
+```python
+# Print component registry
+print(coordinator.component_manager.list_extractors())
+print(coordinator.component_manager.list_processors())
+
+# Check extracted data
+pr_data = coordinator.extract_pr_components(pr_url)
+print(pr_data.model_dump(exclude_none=True))
+
+# Inspect processing results
+for result in processing_results:
+    if not result.success:
+        print(f"Failed: {result.component}")
+        print(f"Errors: {result.errors}")
+```
+
+## Future Enhancements
+
+### Planned Features
+1. **Async Support**: Parallel PR processing
+2. **Streaming Output**: For large data sets
+3. **Plugin System**: External component plugins
+4. **AI Integration**: Enhanced analysis with LLMs
+5. **Web Interface**: Dashboard for analysis results
+6. **CI/CD Integration**: GitHub Actions workflow
+
+### Architecture Evolution
+1. **Event-Driven Processing**: Pub/sub for components
+2. **Distributed Processing**: Multi-worker support
+3. **Result Storage**: Database backend option
+4. **Real-time Analysis**: Webhook-triggered processing

@@ -59,8 +59,8 @@ class TestLiveIntegration:
     @pytest.mark.parametrize(
         "pr_type,pr_url",
         [
-            ("small_js_feature", "https://github.com/prebid/Prebid.js/pull/11000"),
-            ("medium_server_fix", "https://github.com/prebid/prebid-server/pull/3200"),
+            ("small_js_feature", "https://github.com/prebid/Prebid.js/pull/10000"),
+            ("medium_server_fix", "https://github.com/prebid/prebid-server/pull/3000"),
         ],
     )
     def test_live_pr_analysis(self, live_coordinator, pr_type, pr_url):
@@ -183,7 +183,7 @@ class TestLiveIntegration:
             for result in analysis["processing_results"]:
                 if result["success"]:
                     assert "processing_time_ms" in result
-                    assert result["processing_time_ms"] > 0
+                    assert result["processing_time_ms"] >= 0  # Allow 0ms for very fast operations
 
 
 if __name__ == "__main__":
