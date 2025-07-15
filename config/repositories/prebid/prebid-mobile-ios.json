@@ -1,0 +1,59 @@
+{
+  "$schema": "../../schema/repository.schema.json",
+  "repo_name": "prebid/prebid-mobile-ios",
+  "repo_type": "prebid-mobile-ios",
+  "description": "Prebid Mobile SDK for iOS",
+  "detection_strategy": "directory_based",
+  "fetch_strategy": "filenames_only",
+  "relationships": [
+    {
+      "type": "uses_modules_from",
+      "target": "prebid/prebid-server",
+      "description": "Mobile SDK uses bid adapters from Prebid Server"
+    }
+  ],
+  "module_categories": {
+    "rendering_module": {
+      "display_name": "Rendering Modules",
+      "paths": ["PrebidMobile/PrebidMobileRendering/"],
+      "patterns": [
+        {
+          "pattern": "*.swift",
+          "type": "glob"
+        },
+        {
+          "pattern": "*.m",
+          "type": "glob"
+        }
+      ],
+      "detection_strategy": "filename_pattern"
+    },
+    "api_module": {
+      "display_name": "API Modules",
+      "paths": ["PrebidMobile/Core/"],
+      "patterns": [
+        {
+          "pattern": "*.swift",
+          "type": "glob"
+        },
+        {
+          "pattern": "*.m",
+          "type": "glob"
+        }
+      ],
+      "detection_strategy": "filename_pattern"
+    }
+  },
+  "paths": {
+    "core": [
+      "PrebidMobile/Core/",
+      "PrebidMobile/PrebidMobileRendering/"
+    ],
+    "test": [
+      "PrebidMobileTests/",
+      "PrebidMobile/PrebidMobileTests/"
+    ],
+    "docs": ["docs/"],
+    "exclude": ["build/", "Pods/", ".git/"]
+  }
+}

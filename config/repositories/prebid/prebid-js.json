@@ -6,6 +6,7 @@
   "extends": "../shared/prebid-base.json",
   "detection_strategy": "hybrid",
   "fetch_strategy": "filenames_only",
+  "default_version": "v10.0",
   "module_categories": {
     "bid_adapter": {
       "paths": ["modules/"]
@@ -25,6 +26,8 @@
   },
   "version_overrides": {
     "v10.0+": {
+      "metadata_path": "metadata/modules/",
+      "notes": "v10.0+ uses metadata JSON files in metadata/modules/ directory for module detection. Each file contains componentType field.",
       "module_categories": {
         "bid_adapter": {
           "paths": ["modules/", "metadata/modules/"],
@@ -61,6 +64,57 @@
           "detection_strategy": "metadata_file",
           "metadata_field": "componentType",
           "metadata_value": "analytics"
+        },
+        "rtd_module": {
+          "paths": ["metadata/modules/"],
+          "patterns": [
+            {
+              "pattern": "*RtdProvider.json",
+              "type": "suffix",
+              "name_extraction": "remove_suffix:RtdProvider"
+            }
+          ],
+          "detection_strategy": "metadata_file",
+          "metadata_field": "componentType",
+          "metadata_value": "rtd"
+        },
+        "id_module": {
+          "paths": ["metadata/modules/"],
+          "patterns": [
+            {
+              "pattern": "*IdSystem.json",
+              "type": "suffix",
+              "name_extraction": "remove_suffix:IdSystem"
+            }
+          ],
+          "detection_strategy": "metadata_file",
+          "metadata_field": "componentType",
+          "metadata_value": "userId"
+        },
+        "video_module": {
+          "paths": ["metadata/modules/"],
+          "patterns": [
+            {
+              "pattern": "*VideoProvider.json",
+              "type": "suffix",
+              "name_extraction": "remove_suffix:VideoProvider"
+            }
+          ],
+          "detection_strategy": "metadata_file",
+          "metadata_field": "componentType",
+          "metadata_value": "video"
+        },
+        "general_module": {
+          "paths": ["metadata/modules/"],
+          "patterns": [
+            {
+              "pattern": "*.json",
+              "type": "glob"
+            }
+          ],
+          "detection_strategy": "metadata_file",
+          "metadata_field": "componentType",
+          "metadata_value": "module"
         }
       }
     }
@@ -70,5 +124,14 @@
     "test": ["test/spec/modules/", "test/spec/unit/"],
     "docs": ["docs/"],
     "exclude": ["node_modules/", "build/", "dist/"]
+  },
+  "metadata": {
+    "metadata_structure": {
+      "example_rtd": {
+        "file": "metadata/modules/1plusXRtdProvider.json",
+        "fields": ["componentType", "title", "description", "userId", "features"]
+      },
+      "component_types": ["bidder", "analytics", "rtd", "userId", "video", "module"]
+    }
   }
 }

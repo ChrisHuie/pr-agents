@@ -4,6 +4,9 @@
   "repositories": [
     "./repositories/prebid/prebid-js.json",
     "./repositories/prebid/prebid-server-go.json",
-    "./repositories/prebid/prebid-server-java.json"
+    "./repositories/prebid/prebid-server-java.json",
+    "./repositories/prebid/prebid-mobile-android.json",
+    "./repositories/prebid/prebid-mobile-ios.json",
+    "./repositories/prebid/prebid.github.io.json"
   ]
 }

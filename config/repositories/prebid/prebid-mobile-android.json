@@ -1,0 +1,48 @@
+{
+  "$schema": "../../schema/repository.schema.json",
+  "repo_name": "prebid/prebid-mobile-android",
+  "repo_type": "prebid-mobile-android",
+  "description": "Prebid Mobile SDK for Android",
+  "detection_strategy": "directory_based",
+  "fetch_strategy": "filenames_only",
+  "relationships": [
+    {
+      "type": "uses_modules_from",
+      "target": "prebid/prebid-server",
+      "description": "Mobile SDK uses bid adapters from Prebid Server"
+    }
+  ],
+  "module_categories": {
+    "rendering_module": {
+      "display_name": "Rendering Modules",
+      "paths": ["PrebidMobile/PrebidMobile-core/src/main/java/org/prebid/mobile/rendering/"],
+      "patterns": [
+        {
+          "pattern": "*.java",
+          "type": "glob"
+        }
+      ],
+      "detection_strategy": "filename_pattern"
+    },
+    "api_module": {
+      "display_name": "API Modules",
+      "paths": ["PrebidMobile/PrebidMobile-core/src/main/java/org/prebid/mobile/api/"],
+      "patterns": [
+        {
+          "pattern": "*.java",
+          "type": "glob"
+        }
+      ],
+      "detection_strategy": "filename_pattern"
+    }
+  },
+  "paths": {
+    "core": ["PrebidMobile/PrebidMobile-core/src/main/java/org/prebid/mobile/"],
+    "test": [
+      "PrebidMobile/PrebidMobile-core/src/test/",
+      "PrebidMobile/PrebidMobile-core/src/androidTest/"
+    ],
+    "docs": ["docs/"],
+    "exclude": ["build/", ".gradle/"]
+  }
+}

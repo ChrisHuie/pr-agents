@@ -1,0 +1,82 @@
+{
+  "$schema": "../../schema/repository.schema.json",
+  "repo_name": "prebid/prebid.github.io",
+  "repo_type": "prebid-docs",
+  "description": "Prebid Documentation Website",
+  "detection_strategy": "filename_pattern",
+  "fetch_strategy": "filenames_only",
+  "relationships": [
+    {
+      "type": "documents",
+      "target": "prebid/Prebid.js",
+      "description": "Documents Prebid.js modules and features"
+    },
+    {
+      "type": "documents",
+      "target": "prebid/prebid-server",
+      "description": "Documents Prebid Server adapters and features"
+    },
+    {
+      "type": "documents",
+      "target": "prebid/prebid-mobile-android",
+      "description": "Documents Android SDK"
+    },
+    {
+      "type": "documents",
+      "target": "prebid/prebid-mobile-ios",
+      "description": "Documents iOS SDK"
+    }
+  ],
+  "module_categories": {
+    "bid_adapter_docs": {
+      "display_name": "Bid Adapter Documentation",
+      "paths": ["dev-docs/bidders/"],
+      "patterns": [
+        {
+          "pattern": "*.md",
+          "type": "glob"
+        }
+      ],
+      "detection_strategy": "filename_pattern"
+    },
+    "analytics_docs": {
+      "display_name": "Analytics Documentation",
+      "paths": ["dev-docs/analytics/"],
+      "patterns": [
+        {
+          "pattern": "*.md",
+          "type": "glob"
+        }
+      ],
+      "detection_strategy": "filename_pattern"
+    },
+    "module_docs": {
+      "display_name": "Module Documentation",
+      "paths": ["dev-docs/modules/"],
+      "patterns": [
+        {
+          "pattern": "*.md",
+          "type": "glob"
+        }
+      ],
+      "detection_strategy": "filename_pattern"
+    },
+    "id_module_docs": {
+      "display_name": "Identity Module Documentation",
+      "paths": ["dev-docs/modules/userid-submodules/"],
+      "patterns": [
+        {
+          "pattern": "*.md",
+          "type": "glob"
+        }
+      ],
+      "detection_strategy": "filename_pattern"
+    }
+  },
+  "paths": {
+    "core": ["dev-docs/", "prebid-server/", "prebid-mobile/"],
+    "test": [],
+    "docs": ["dev-docs/", "overview/", "prebid-server/", "prebid-mobile/"],
+    "exclude": ["_site/", ".jekyll-cache/", "node_modules/"]
+  }
+}
