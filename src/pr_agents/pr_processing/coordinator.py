@@ -24,21 +24,27 @@ class PRCoordinator:
     Delegates to specialized sub-coordinators while maintaining backward compatibility.
     """
 
-    def __init__(self, github_token: str) -> None:
+    def __init__(self, github_token: str, ai_enabled: bool = False) -> None:
         """
         Initialize PR Coordinator with sub-coordinators.
 
         Args:
             github_token: GitHub authentication token
+            ai_enabled: Whether to enable AI-powered summaries
         """
         logger.info("🔧 Initializing PR Coordinator")
         self.github_client = Github(github_token)
         self.github_token = github_token
+        self.ai_enabled = ai_enabled
         log_processing_step("GitHub client initialized")
 
         # Initialize component manager
         self.component_manager = ComponentManager(self.github_client)
         log_processing_step("Component manager initialized")
+
+        # Register AI processor if enabled
+        if ai_enabled:
+            self._register_ai_processor()
 
         # Initialize sub-coordinators
         self.single_pr_coordinator = SinglePRCoordinator(
@@ -59,6 +65,21 @@ class PRCoordinator:
         # Initialize legacy PR fetcher for backward compatibility
         self.pr_fetcher = PRFetcher(github_token)
         log_processing_step("PR Fetcher initialized")
+
+    def _register_ai_processor(self) -> None:
+        """Register the AI processor if enabled."""
+        try:
+            from ..services.ai import AIService
+            from .processors.ai_processor import AIProcessor
+
+            logger.info("Registering AI processor")
+            ai_service = AIService()
+            ai_processor = AIProcessor(ai_service)
+            self.component_manager.register_processor("ai_summaries", ai_processor)
+            log_processing_step("AI processor registered")
+        except Exception as e:
+            logger.error(f"Failed to register AI processor: {str(e)}")
+            self.ai_enabled = False
 
     # ===================
     # Single PR Analysis
@@ -120,6 +141,62 @@ class PRCoordinator:
         )
 
         bound_logger.success("🏁 PR analysis pipeline complete")
+        return results
+
+    def analyze_pr_with_ai(
+        self,
+        pr_url: str,
+        extract_components: set[str] | None = None,
+        run_processors: list[str] | None = None,
+    ) -> dict[str, Any]:
+        """
+        Analyze PR with AI-powered summaries.
+
+        Args:
+            pr_url: GitHub PR URL
+            extract_components: Components to extract (defaults include metadata and code)
+            run_processors: Processors to run (defaults include ai_summaries)
+
+        Returns:
+            Dictionary with analysis results including AI summaries
+
+        Raises:
+            ValueError: If AI is not enabled
+        """
+        if not self.ai_enabled:
+            raise ValueError(
+                "AI is not enabled. Initialize PRCoordinator with ai_enabled=True"
+            )
+
+        # Ensure required components are extracted
+        if extract_components is None:
+            extract_components = {"metadata", "code_changes", "repository"}
+        else:
+            # Add required components for AI
+            extract_components = extract_components | {"metadata", "code_changes"}
+
+        # Ensure AI processor runs
+        if run_processors is None:
+            run_processors = ["metadata", "code_changes", "repository", "ai_summaries"]
+        elif "ai_summaries" not in run_processors:
+            run_processors = run_processors + ["ai_summaries"]
+
+        # Run standard analysis with AI
+        results = self.analyze_pr(pr_url, extract_components, run_processors)
+
+        # Ensure AI summaries are in the results
+        if "processing_results" in results:
+            ai_results = next(
+                (
+                    r
+                    for r in results["processing_results"]
+                    if r.get("component") == "ai_summaries"
+                ),
+                None,
+            )
+            if ai_results and ai_results.get("success"):
+                results["ai_summaries"] = ai_results.get("data", {})
+
         return results
 
     # ===================

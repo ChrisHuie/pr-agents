@@ -6,6 +6,7 @@ Dataclasses provide better performance and less boilerplate for internal process
 """
 
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import Any
 
 
@@ -196,3 +197,27 @@ class RepoAnalysisResult:
     language_analysis: LanguageAnalysis
     branch_analysis: BranchAnalysis
     repo_health: RepoHealth
+
+
+# AI Analysis Results
+@dataclass
+class PersonaSummary:
+    """Summary for a specific persona."""
+
+    persona: str  # "executive", "product", "developer"
+    summary: str
+    confidence: float
+
+
+@dataclass
+class AISummaries:
+    """AI-generated summaries for code changes."""
+
+    executive_summary: PersonaSummary
+    product_summary: PersonaSummary
+    developer_summary: PersonaSummary
+    model_used: str
+    generation_timestamp: datetime
+    cached: bool = False
+    total_tokens: int = 0
+    generation_time_ms: int = 0

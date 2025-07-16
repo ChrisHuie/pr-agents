@@ -194,8 +194,18 @@ uv install  # or pip install -e .
 ### Environment Setup
 
 ```bash
-# Create .env file
+# Create .env file with required GitHub token
 echo "GITHUB_TOKEN=your_github_token_here" > .env
+
+# Optional: Enable AI-powered summaries
+echo "AI_PROVIDER=gemini" >> .env  # Options: gemini, claude, openai
+
+# Add API key for your chosen provider
+echo "GEMINI_API_KEY=your_gemini_key" >> .env
+# OR
+echo "ANTHROPIC_API_KEY=your_anthropic_key" >> .env
+# OR
+echo "OPENAI_API_KEY=your_openai_key" >> .env
 ```
 
 ### Logging Configuration
@@ -267,6 +277,32 @@ for format in ["markdown", "json", "text"]:
 # Get formatted string without saving
 formatted_content = output_manager.format(results, "markdown")
 print(formatted_content)
+```
+
+### AI-Powered Summaries
+
+```python
+# Initialize coordinator with AI enabled
+coordinator = PRCoordinator(github_token="your-token", ai_enabled=True)
+
+# Analyze PR with AI summaries
+results = coordinator.analyze_pr_with_ai(
+    "https://github.com/owner/repo/pull/123"
+)
+
+# Access AI-generated summaries
+ai_summaries = results["ai_summaries"]
+print(f"Executive: {ai_summaries['executive_summary']['summary']}")
+print(f"Product: {ai_summaries['product_summary']['summary']}")
+print(f"Developer: {ai_summaries['developer_summary']['summary']}")
+
+# Save analysis with AI summaries included
+results, path = coordinator.analyze_pr_and_save(
+    "https://github.com/owner/repo/pull/123",
+    output_path="pr_analysis_with_ai",
+    output_format="markdown",
+    run_processors=["metadata", "code_changes", "ai_summaries"]
+)
 ```
 
 ### Selective Processing
