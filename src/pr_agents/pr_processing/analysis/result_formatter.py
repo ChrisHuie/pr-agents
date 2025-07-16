@@ -52,6 +52,8 @@ class ResultFormatter:
                     output["repository_info"] = ResultFormatter._format_repository(data)
                 elif component == "reviews":
                     output["reviews"] = ResultFormatter._format_reviews(data)
+                elif component == "ai_summaries":
+                    output["ai_summaries"] = data
 
         # Add processing metrics
         output["processing_metrics"] = ResultFormatter._format_metrics(results)

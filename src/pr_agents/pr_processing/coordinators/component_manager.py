@@ -137,6 +137,17 @@ class ComponentManager:
         """Get list of available processor names."""
         return list(self._processors.keys())
 
+    def register_processor(self, name: str, processor: BaseProcessor) -> None:
+        """
+        Register a new processor.
+
+        Args:
+            name: Name for the processor
+            processor: Processor instance
+        """
+        logger.info(f"Registering processor: {name}")
+        self._processors[name] = processor
+
     def get_component_data(
         self, pr_data: Any, component_name: str
     ) -> dict[str, Any] | None:
@@ -156,6 +167,20 @@ class ComponentManager:
             "repository": pr_data.repository_info,
             "reviews": pr_data.review_data,
         }
+
+        # Special handling for AI summaries processor
+        if component_name == "ai_summaries":
+            # AI processor needs multiple components
+            # Extract repo URL from metadata if available
+            repo_url = ""
+            if pr_data.metadata and hasattr(pr_data.metadata, "url"):
+                repo_url = pr_data.metadata.url
+
+            return {
+                "code": pr_data.code_changes,
+                "metadata": pr_data.metadata,
+                "repo_url": repo_url,
+            }
 
         data = component_map.get(component_name)
         return data if data is not None else None

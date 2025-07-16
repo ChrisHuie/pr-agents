@@ -55,6 +55,10 @@ class TextFormatter(BaseFormatter):
         if "reviews" in data:
             lines.extend(self._format_reviews(data["reviews"]))
 
+        # AI Summaries Section
+        if "ai_summaries" in data:
+            lines.extend(self._format_ai_summaries(data["ai_summaries"]))
+
         # Processing Metrics
         if "processing_metrics" in data:
             lines.extend(self._format_processing_metrics(data["processing_metrics"]))
@@ -217,6 +221,53 @@ class TextFormatter(BaseFormatter):
 
             lines.append("")
 
+        return lines
+
+    def _format_ai_summaries(self, ai_summaries: dict[str, Any]) -> list[str]:
+        """Format AI-generated summaries section."""
+        lines = ["-" * 40]
+        lines.append("AI-GENERATED SUMMARIES")
+        lines.append("-" * 40)
+        lines.append("")
+
+        # Executive Summary
+        if "executive_summary" in ai_summaries:
+            exec_summary = ai_summaries["executive_summary"]
+            lines.append("EXECUTIVE SUMMARY:")
+            lines.append(f"  {exec_summary.get('summary', 'No summary available')}")
+            lines.append("")
+
+        # Product Manager Summary
+        if "product_summary" in ai_summaries:
+            product_summary = ai_summaries["product_summary"]
+            lines.append("PRODUCT MANAGER SUMMARY:")
+            lines.append(f"  {product_summary.get('summary', 'No summary available')}")
+            lines.append("")
+
+        # Developer Summary
+        if "developer_summary" in ai_summaries:
+            dev_summary = ai_summaries["developer_summary"]
+            lines.append("TECHNICAL DEVELOPER SUMMARY:")
+            lines.append(f"  {dev_summary.get('summary', 'No summary available')}")
+            lines.append("")
+
+        # Summary Metadata
+        lines.append("Summary Generation Details:")
+        lines.append(f"  Model Used: {ai_summaries.get('model_used', 'Unknown')}")
+        lines.append(
+            f"  Generated At: {ai_summaries.get('generation_timestamp', 'Unknown')}"
+        )
+        lines.append(
+            f"  From Cache: {'Yes' if ai_summaries.get('cached', False) else 'No'}"
+        )
+
+        if "total_tokens" in ai_summaries and ai_summaries["total_tokens"] > 0:
+            lines.append(f"  Total Tokens: {ai_summaries['total_tokens']}")
+
+        if "generation_time_ms" in ai_summaries:
+            lines.append(f"  Generation Time: {ai_summaries['generation_time_ms']}ms")
+
+        lines.append("")
         return lines
 
     def _format_processing_metrics(self, metrics: dict[str, Any]) -> list[str]:

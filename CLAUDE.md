@@ -49,6 +49,7 @@ python -m src.pr_agents.config.cli list      # List repositories
 24. [Performance Optimization](#performance-optimization)
 25. [Debugging Tips](#debugging-tips)
 26. [Future Enhancements](#future-enhancements)
+27. [AI-Powered Code Summarization](#ai-powered-code-summarization)
 
 ## Project Overview
 PR Agents is a modular Python library for analyzing GitHub Pull Requests with strict component isolation. The project emphasizes type safety, preventing "context bleeding" between different analysis components, and provides comprehensive PR insights through a structured pipeline architecture.
@@ -944,12 +945,217 @@ for result in processing_results:
 1. **Async Support**: Parallel PR processing
 2. **Streaming Output**: For large data sets
 3. **Plugin System**: External component plugins
-4. **AI Integration**: Enhanced analysis with LLMs
-5. **Web Interface**: Dashboard for analysis results
-6. **CI/CD Integration**: GitHub Actions workflow
+4. **Web Interface**: Dashboard for analysis results
+5. **CI/CD Integration**: GitHub Actions workflow
 
 ### Architecture Evolution
 1. **Event-Driven Processing**: Pub/sub for components
 2. **Distributed Processing**: Multi-worker support
 3. **Result Storage**: Database backend option
 4. **Real-time Analysis**: Webhook-triggered processing
+
+## AI-Powered Code Summarization
+
+### Overview
+The AI service layer provides intelligent, persona-based summarization of code changes using LLMs (Large Language Models). It generates three levels of summaries tailored for different audiences: executives, product managers, and developers.
+
+### Architecture Design
+
+#### Service Layer Architecture
+The AI functionality is implemented as a service layer to maintain separation from the core processing logic:
+
+```
+PRCoordinator (ai_enabled=True)
+    ↓
+AIProcessor (registered dynamically)
+    ↓
+AIService (orchestrates LLM calls)
+    ↓
+LLM Providers (Gemini, Claude, OpenAI)
+```
+
+#### Key Components
+
+1. **AIService** (`src/pr_agents/services/ai/service.py`)
+   - Main orchestrator for AI functionality
+   - Manages provider lifecycle
+   - Handles caching for consistency
+   - Concurrent persona summary generation
+
+2. **LLM Providers** (`src/pr_agents/services/ai/providers/`)
+   - `BaseLLMProvider`: Abstract interface
+   - `GeminiProvider`: Google Gemini integration
+   - `ClaudeProvider`: Anthropic Claude integration
+   - `OpenAIProvider`: OpenAI GPT integration
+
+3. **Prompt Management** (`src/pr_agents/services/ai/prompts/`)
+   - `PromptBuilder`: Constructs context-aware prompts
+   - `templates.py`: Persona-specific templates
+   - Repository context integration
+
+4. **Caching System** (`src/pr_agents/services/ai/cache/`)
+   - `SummaryCache`: In-memory caching
+   - Key generation based on change patterns
+   - TTL-based expiration
+
+5. **AIProcessor** (`src/pr_agents/pr_processing/processors/ai_processor.py`)
+   - Integrates with existing processor architecture
+   - Builds repository context
+   - Language detection
+
+### Configuration
+
+#### Environment Variables
+```env
+# LLM Provider Selection
+AI_PROVIDER=gemini  # Options: gemini, claude, openai
+
+# Provider API Keys
+GEMINI_API_KEY=your_gemini_key
+ANTHROPIC_API_KEY=your_anthropic_key
+OPENAI_API_KEY=your_openai_key
+
+# AI Service Configuration
+AI_CACHE_TTL=86400  # Cache TTL in seconds (default: 24 hours)
+AI_MAX_RETRIES=3    # Maximum retry attempts
+AI_TIMEOUT=30       # Request timeout in seconds
+```
+
+#### Enabling AI Features
+```python
+# Initialize coordinator with AI enabled
+coordinator = PRCoordinator(github_token="your-token", ai_enabled=True)
+
+# Analyze PR with AI summaries
+results = coordinator.analyze_pr_with_ai(
+    "https://github.com/owner/repo/pull/123"
+)
+
+# Access AI summaries
+print(results["ai_summaries"]["executive_summary"])
+print(results["ai_summaries"]["product_summary"])
+print(results["ai_summaries"]["developer_summary"])
+```
+
+### Summary Personas
+
+#### 1. Executive Summary (150 tokens)
+- **Focus**: Business impact and scope
+- **Length**: 1-2 sentences
+- **Example**: "Sevio Bid Adapter added to Prebid.js and supports banner and native media types."
+
+#### 2. Product Manager Summary (300 tokens)
+- **Focus**: Features and capabilities
+- **Length**: 2-4 sentences
+- **Example**: "Sevio Bid Adapter added to Prebid.js with comprehensive support for banner (300x250, 728x90) and native ad formats. Features include Ethereum and Solana digital wallet detection for Web3 targeting, GDPR/CCPA compliance handling, and real-time bid adjustment based on user engagement metrics. Implements standard adapter callbacks (onBidWon, onBidderError, onTimeout) plus custom user sync with configurable pixel and iframe endpoints supporting up to 5 concurrent syncs."
+
+#### 3. Developer Summary (500 tokens)
+- **Focus**: Technical implementation details
+- **Length**: 4-6 sentences
+- **Example**: "Sevio Bid Adapter (modules/sevioBidAdapter.js) and CryptoUtils library (libraries/cryptoUtils/index.js) added to Prebid.js. The CryptoUtils library implements SHA-256 hashing and AES-GCM encryption using the Web Crypto API for secure bid request signing, with fallback to CryptoJS for older browsers. The Sevio adapter extends the Prebid BaseAdapter class, implementing interpretResponse() with custom bid parsing logic that handles nested JSON responses, buildRequests() with dynamic endpoint selection based on datacenter location, and isBidRequestValid() with strict schema validation using Joi. Adds three new dependencies: crypto-js@4.1.1 for legacy support, joi@17.9.0 for validation, and ethers@6.7.0 for Web3 wallet detection. Test coverage includes 47 unit tests (93% line coverage) using Sinon for mocking external API calls and Chai for assertions. Performance optimization through request batching reduces API calls by 60% for multi-slot pages. Implements OWASP-compliant input sanitization and rate limiting (100 req/min) to prevent abuse."
+
+### Prompt Engineering
+
+#### Repository Context
+The system enriches prompts with repository-specific context:
+- Repository type and description
+- Module patterns and structure
+- Programming languages detected
+- File organization
+
+#### Dynamic Prompt Construction
+```python
+# Example prompt structure for executive persona
+prompt = f"""
+You are summarizing code changes for an executive audience.
+Repository: {repo_name} ({repo_type})
+
+PR Title: {pr_title}
+Files Changed: {file_count}
+Lines Added: {additions}
+Lines Deleted: {deletions}
+
+Repository Context:
+{repo_context}
+
+Provide a 1-2 sentence executive summary...
+"""
+```
+
+### Caching Strategy
+
+#### Cache Key Generation
+Cache keys are generated based on:
+- Repository name and type
+- Change magnitude (small/medium/large)
+- File patterns (e.g., "*BidAdapter.js")
+- Primary directories affected
+
+#### Benefits
+- Consistent summaries for similar changes
+- Reduced API costs
+- Lower latency for common patterns
+- 24-hour default TTL
+
+### Error Handling
+
+#### Graceful Degradation
+- Provider failures return error summaries
+- Automatic retry with exponential backoff
+- Fallback to cached results when available
+
+#### Error Summary Format
+```python
+PersonaSummary(
+    persona="executive",
+    summary="Error generating summary: API timeout",
+    confidence=0.0
+)
+```
+
+### Testing Strategy
+
+#### Unit Tests
+- Mock provider implementations
+- Prompt builder validation
+- Cache functionality
+- Error handling scenarios
+
+#### Integration Tests
+- Full pipeline with mocked LLM responses
+- Caching behavior verification
+- Output format validation
+
+### Performance Considerations
+
+#### Concurrent Processing
+- All three personas generated in parallel
+- Async/await for non-blocking operations
+- Total generation time typically 2-3 seconds
+
+#### Token Optimization
+- Executive: 150 tokens (cost: ~$0.0001)
+- Product: 300 tokens (cost: ~$0.0003)
+- Developer: 500 tokens (cost: ~$0.0005)
+- Total per PR: ~$0.001
+
+### Security Considerations
+
+#### API Key Management
+- Environment variable storage only
+- No hardcoded credentials
+- Secure key rotation support
+
+#### Data Privacy
+- No sensitive code in prompts
+- Sanitized repository context
+- No PII in summaries
+
+### Future Enhancements
+
+1. **Streaming Support**: Real-time summary generation
+2. **Fine-tuning**: Custom models for specific repository types
+3. **Multi-language Summaries**: Support for non-English summaries
+4. **Feedback Integration**: User feedback to improve summaries
+5. **Cost Optimization**: Smart routing between providers
+6. **Webhook Support**: Real-time PR analysis on creation
