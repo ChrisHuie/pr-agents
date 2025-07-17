@@ -175,7 +175,7 @@ class SummaryCache:
     def _get_file_patterns(self, code_changes: CodeChanges) -> str:
         """Extract file patterns from changed files."""
         patterns = []
-        
+
         # Pattern rules: (pattern_name, check_function)
         pattern_rules = [
             # Adapter patterns
@@ -183,46 +183,65 @@ class SummaryCache:
             ("analytics-adapter", lambda f: f.endswith("AnalyticsAdapter.js")),
             ("rtd-module", lambda f: f.endswith("RtdProvider.js")),
             ("user-module", lambda f: f.endswith("IdSystem.js")),
-            ("adapter", lambda f: "adapter" in f.lower() and not any(
-                f.endswith(x) for x in ["BidAdapter.js", "AnalyticsAdapter.js"]
-            )),
-            
+            (
+                "adapter",
+                lambda f: "adapter" in f.lower()
+                and not any(
+                    f.endswith(x) for x in ["BidAdapter.js", "AnalyticsAdapter.js"]
+                ),
+            ),
             # Test patterns
             ("unit-test", lambda f: "test/spec/" in f or "_spec.js" in f),
             ("integration-test", lambda f: "test/integration/" in f),
-            ("test", lambda f: ("test" in f.lower() or "spec" in f.lower()) and not any(
-                x in f for x in ["test/spec/", "test/integration/", "_spec.js"]
-            )),
-            
+            (
+                "test",
+                lambda f: ("test" in f.lower() or "spec" in f.lower())
+                and not any(
+                    x in f for x in ["test/spec/", "test/integration/", "_spec.js"]
+                ),
+            ),
             # Configuration patterns
             ("package-json", lambda f: f == "package.json"),
             ("webpack-config", lambda f: "webpack" in f and f.endswith(".js")),
-            ("babel-config", lambda f: f.startswith(".babel") or f == "babel.config.js"),
-            ("config", lambda f: f.endswith((".json", ".yaml", ".yml", ".toml")) and not any(
-                x in f for x in ["package.json", "webpack", "babel"]
-            )),
-            
+            (
+                "babel-config",
+                lambda f: f.startswith(".babel") or f == "babel.config.js",
+            ),
+            (
+                "config",
+                lambda f: f.endswith((".json", ".yaml", ".yml", ".toml"))
+                and not any(x in f for x in ["package.json", "webpack", "babel"]),
+            ),
             # Documentation patterns
-            ("readme", lambda f: f.lower() in ["readme.md", "readme.rst", "readme.txt"]),
+            (
+                "readme",
+                lambda f: f.lower() in ["readme.md", "readme.rst", "readme.txt"],
+            ),
             ("api-docs", lambda f: "docs/api/" in f or "api.md" in f),
-            ("docs", lambda f: f.endswith((".md", ".rst", ".txt")) and not any(
-                x in f for x in ["readme", "api", "changelog", "license"]
-            )),
-            
+            (
+                "docs",
+                lambda f: f.endswith((".md", ".rst", ".txt"))
+                and not any(x in f for x in ["readme", "api", "changelog", "license"]),
+            ),
             # Core/Library patterns
             ("core-src", lambda f: "src/core/" in f or "src/prebid.js" == f),
             ("core", lambda f: ("src/" in f or "/core/" in f) and "src/core/" not in f),
-            ("library", lambda f: "/lib/" in f or "/library/" in f or "libraries/" in f),
-            
+            (
+                "library",
+                lambda f: "/lib/" in f or "/library/" in f or "libraries/" in f,
+            ),
             # Build/CI patterns
             ("github-actions", lambda f: ".github/workflows/" in f),
-            ("ci-config", lambda f: any(x in f for x in [".travis", ".circleci", "jenkins"])),
+            (
+                "ci-config",
+                lambda f: any(x in f for x in [".travis", ".circleci", "jenkins"]),
+            ),
             ("build", lambda f: "gulpfile" in f or "Makefile" in f or "/build/" in f),
         ]
 
         for diff in code_changes.file_diffs:
             filename = diff.filename.lower()
-            
+
             # Apply pattern rules
             for pattern_name, check_func in pattern_rules:
                 if check_func(filename):

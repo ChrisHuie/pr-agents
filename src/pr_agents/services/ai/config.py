@@ -1,13 +1,12 @@
 """Configuration for AI service settings."""
 
 from dataclasses import dataclass
-from typing import Dict
 
 
 @dataclass
 class PersonaConfig:
     """Configuration for a specific persona."""
-    
+
     max_tokens: int
     temperature: float
     min_length: int
@@ -17,23 +16,23 @@ class PersonaConfig:
 @dataclass
 class AIConfig:
     """AI service configuration."""
-    
+
     # Model settings
     default_provider: str = "gemini"
     default_model: str = "gemini-pro"
-    
+
     # Retry settings
     max_retries: int = 3
     initial_retry_delay: float = 1.0
     retry_backoff_factor: float = 2.0
-    
+
     # Cache settings
     cache_enabled: bool = True
     cache_ttl_seconds: int = 86400  # 24 hours
-    
+
     # Persona-specific settings
-    persona_configs: Dict[str, PersonaConfig] = None
-    
+    persona_configs: dict[str, PersonaConfig] = None
+
     def __post_init__(self):
         """Initialize default persona configurations."""
         if self.persona_configs is None:
@@ -57,30 +56,30 @@ class AIConfig:
                     max_length=400,
                 ),
             }
-    
+
     @classmethod
     def from_env(cls) -> "AIConfig":
         """Create config from environment variables."""
         import os
-        
+
         config = cls()
-        
+
         # Override from environment if set
         if provider := os.getenv("AI_PROVIDER"):
             config.default_provider = provider.lower()
-        
+
         if model := os.getenv("AI_MODEL"):
             config.default_model = model
-            
+
         if max_retries := os.getenv("AI_MAX_RETRIES"):
             config.max_retries = int(max_retries)
-            
+
         if cache_enabled := os.getenv("AI_CACHE_ENABLED"):
             config.cache_enabled = cache_enabled.lower() in ("true", "1", "yes")
-            
+
         if cache_ttl := os.getenv("AI_CACHE_TTL"):
             config.cache_ttl_seconds = int(cache_ttl)
-        
+
         return config
 
 

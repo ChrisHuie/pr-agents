@@ -311,13 +311,6 @@ All code must be consistently documented inline:
 - **Type hints**: Complete type annotations for all function parameters and returns
 - **Consistent style**: Match existing docstring format in the codebase
 
-### README Updates
-Update README.md only when changes affect:
-- Installation, setup, or environment configuration
-- User-facing features or API usage
-- New environment variables or configuration options
-- Core functionality that users need to understand
-
 ### Documentation Consistency
 - Follow existing patterns and style in the codebase
 - Keep docstrings concise but complete
@@ -331,40 +324,6 @@ from src.pr_agents.pr_processing.coordinator import PRCoordinator
 
 coordinator = PRCoordinator(github_token="your-token")
 results = coordinator.analyze_pr("https://github.com/owner/repo/pull/123")
-```
-
-### Using Fetchers Directly
-```python
-from src.pr_agents.pr_processing.fetchers import ReleasePRFetcher, DateRangePRFetcher
-from datetime import datetime, timedelta
-
-# Fetch PRs by release
-release_fetcher = ReleasePRFetcher(github_token)
-prs = release_fetcher.fetch(
-    repo_name="owner/repo",
-    release_tag="v1.2.3"
-)
-
-# Fetch PRs by date range
-date_fetcher = DateRangePRFetcher(github_token)
-end_date = datetime.now()
-start_date = end_date - timedelta(days=30)
-prs = date_fetcher.fetch(
-    repo_name="owner/repo",
-    start_date=start_date,
-    end_date=end_date,
-    state="merged"
-)
-
-# Fetch PRs by label
-from src.pr_agents.pr_processing.fetchers import LabelPRFetcher
-
-label_fetcher = LabelPRFetcher(github_token)
-bug_prs = label_fetcher.fetch(
-    repo_name="owner/repo",
-    label="bug",
-    state="closed"
-)
 ```
 
 ### Batch Processing & Release Analysis
@@ -615,33 +574,6 @@ def _calculate_accuracy(self, metadata: dict, code: dict) -> AccuracyScore:
     )
 ```
 
-### Usage Example
-```python
-# In coordinator.py - Modified to support validation phase
-class PRCoordinator:
-    def process_pr(self, pr_url: str, components: list[str], 
-                   validate_accuracy: bool = False) -> dict:
-        # Existing extraction and processing
-        extracted_data = self.extract_pr_components(pr_url, components)
-        processed_results = self.process_components(extracted_data, components)
-        
-        # Optional validation phase
-        if validate_accuracy:
-            # Prepare data for validator
-            validation_input = {
-                "metadata_results": processed_results.get("metadata"),
-                "code_results": processed_results.get("code")
-            }
-            
-            # Run accuracy validation
-            validator = AccuracyValidator()
-            validation_result = validator.process(validation_input)
-            
-            processed_results["accuracy_validation"] = validation_result.data
-        
-        return processed_results
-```
-
 ### Testing Strategy
 - **Parametrized Test Scenarios**: Cover various accuracy levels
 - **Mock GitHub Data**: Realistic test fixtures
@@ -779,42 +711,6 @@ Two separate components enhance PR analysis with repository-specific understandi
 1. **PR Tagging Processor** - Uses YAML registry to tag and categorize PRs
 2. **Repository Structure Configuration** - JSON-based module location mapping
 
-### Component 1: PR Tagging Processor
-
-#### Purpose
-Analyzes PR files and adds repository-specific tags, impact analysis, and categorization based on YAML registry rules.
-
-#### Architecture
-- **Type**: Processor (operates on extracted PR data)
-- **Location**: `src/pr_agents/pr_processing/processors/pr_tagger.py`
-- **Input**: File changes + YAML registry definitions
-- **Output**: Tags, impact levels, module categories, rule matches
-
-#### Key Features
-- File-level tagging based on patterns
-- Overall PR tag generation
-- Impact analysis (high/medium/low)
-- Module categorization
-- Rule matching from YAML definitions
-
-#### YAML Registry Structure
-Located in `registry/prebid/`, each YAML file defines:
-```yaml
-repo: "https://github.com/prebid/Prebid.js"
-structure:
-  modules:
-    "Bid Adapter": 
-      - modules/++ endsWith('BidAdapter', file)
-    "Analytics Adapter":
-      - modules/++ endsWith('AnalyticsAdapter', file)
-definitions:
-  - name: "rule_name"
-    description: "Rule description"
-    rules_class: "class_name"
-    scope: "per_file"
-    tags: ["tag1", "tag2"]
-```
-
 ### Component 2: Repository Structure Configuration
 
 #### Purpose
@@ -843,28 +739,6 @@ Lightweight configuration system defining where different module types are locat
   }
 }
 ```
-
-### Implementation Plan
-
-#### Phase 1: PR Tagging Processor
-1. Create data models for tagging results
-2. Implement YAML registry loader
-3. Build pattern evaluation system
-4. Create PR tagger processor
-5. Add unit tests
-
-#### Phase 2: Repository Structure Configuration
-1. Design JSON schema for repo structures
-2. Implement configuration loader
-3. Create structure query API
-4. Add configuration for all Prebid repos
-5. Add validation and tests
-
-#### Phase 3: Integration
-1. Update Module Extractor to use repo structure config
-2. Enhance Accuracy Validator with tagging data
-3. Update coordinator to include new components
-4. Add integration tests
 
 ### Key Design Decisions
 - **Separation of Concerns**: Tagging (analysis) vs Structure (configuration)
@@ -939,20 +813,6 @@ for result in processing_results:
         print(f"Errors: {result.errors}")
 ```
 
-## Future Enhancements
-
-### Planned Features
-1. **Async Support**: Parallel PR processing
-2. **Streaming Output**: For large data sets
-3. **Plugin System**: External component plugins
-4. **Web Interface**: Dashboard for analysis results
-5. **CI/CD Integration**: GitHub Actions workflow
-
-### Architecture Evolution
-1. **Event-Driven Processing**: Pub/sub for components
-2. **Distributed Processing**: Multi-worker support
-3. **Result Storage**: Database backend option
-4. **Real-time Analysis**: Webhook-triggered processing
 
 ## AI-Powered Code Summarization
 
@@ -1133,14 +993,6 @@ PersonaSummary(
 - Async/await for non-blocking operations
 - Total generation time typically 2-3 seconds
 
-#### Token Optimization
-- Executive: 150 tokens (cost: ~$0.0001)
-- Product: 300 tokens (cost: ~$0.0003)
-- Developer: 500 tokens (cost: ~$0.0005)
-- Total per PR: ~$0.001
-
-### Security Considerations
-
 #### API Key Management
 - Environment variable storage only
 - No hardcoded credentials
@@ -1150,12 +1002,3 @@ PersonaSummary(
 - No sensitive code in prompts
 - Sanitized repository context
 - No PII in summaries
-
-### Future Enhancements
-
-1. **Streaming Support**: Real-time summary generation
-2. **Fine-tuning**: Custom models for specific repository types
-3. **Multi-language Summaries**: Support for non-English summaries
-4. **Feedback Integration**: User feedback to improve summaries
-5. **Cost Optimization**: Smart routing between providers
-6. **Webhook Support**: Real-time PR analysis on creation

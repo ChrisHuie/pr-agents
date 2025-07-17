@@ -5,8 +5,10 @@ Base PR Fetcher interface and abstract implementation.
 from abc import ABC, abstractmethod
 from typing import Any
 
-from github import Github
+from github import Github, RateLimitExceededException
 from loguru import logger
+
+from src.pr_agents.utilities.rate_limit_manager import RateLimitManager
 
 
 class BasePRFetcher(ABC):
@@ -25,6 +27,8 @@ class BasePRFetcher(ABC):
             github_token: GitHub API token for authentication
         """
         self.github_client = Github(github_token)
+        self.rate_limit_manager = RateLimitManager()
+        self.rate_limit_manager.set_github_client(self.github_client)
         logger.info(f"🔧 Initialized {self.__class__.__name__}")
 
     @abstractmethod
@@ -71,3 +75,27 @@ class BasePRFetcher(ABC):
             "updated_at": pr.updated_at.isoformat(),
             "state": pr.state,
         }
+
+    def _execute_with_rate_limit(self, func, *args, **kwargs):
+        """
+        Execute a function with rate limit handling.
+
+        Args:
+            func: The function to execute
+            *args: Positional arguments for the function
+            **kwargs: Keyword arguments for the function
+
+        Returns:
+            The result of the function call
+        """
+        # Check rate limit before making the call
+        self.rate_limit_manager.wait_if_needed()
+
+        try:
+            result = func(*args, **kwargs)
+            self.rate_limit_manager.track_request()
+            return result
+        except RateLimitExceededException as e:
+            self.rate_limit_manager.handle_rate_limit_exception(e)
+            # Retry after waiting
+            return func(*args, **kwargs)

@@ -111,25 +111,24 @@ class AIProcessor(BaseProcessor):
 
     def _generate_summaries_sync(self, code_changes, repo_context, pr_metadata):
         """Synchronous wrapper for async generate_summaries.
-        
+
         Handles both sync and async contexts gracefully without external dependencies.
         """
         import concurrent.futures
-        import threading
-        
+
         async_coroutine = self.ai_service.generate_summaries(
             code_changes=code_changes,
             repo_context=repo_context,
             pr_metadata=pr_metadata,
         )
-        
+
         try:
             # Check if we're in an event loop
-            loop = asyncio.get_running_loop()
+            asyncio.get_running_loop()
         except RuntimeError:
             # No event loop, safe to use asyncio.run
             return asyncio.run(async_coroutine)
-        
+
         # We're in an event loop, use a thread to avoid blocking
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
             future = executor.submit(asyncio.run, async_coroutine)

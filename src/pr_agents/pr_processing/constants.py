@@ -28,3 +28,10 @@ REPO_HEALTH_KEY = "repo_health"
 METADATA_COMPONENT = "metadata"
 CODE_CHANGES_COMPONENT = "code_changes"
 REPOSITORY_COMPONENT = "repository"
+MODULES_COMPONENT = "modules"
+ACCURACY_VALIDATION_COMPONENT = "accuracy_validation"
+
+# Accuracy validation result keys
+ACCURACY_SCORE_KEY = "accuracy_score"
+ACCURACY_COMPONENTS_KEY = "accuracy_components"
+ACCURACY_RECOMMENDATIONS_KEY = "recommendations"

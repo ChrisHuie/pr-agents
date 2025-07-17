@@ -15,7 +15,9 @@ from ..extractors import (
     RepositoryExtractor,
     ReviewsExtractor,
 )
+from ..extractors.modules import ModuleExtractor
 from ..processors import BaseProcessor, CodeProcessor, MetadataProcessor, RepoProcessor
+from ..processors.accuracy_validator import AccuracyValidator
 
 
 class ComponentManager:
@@ -49,6 +51,7 @@ class ComponentManager:
             "code_changes": CodeChangesExtractor(self.github_client),
             "repository": RepositoryExtractor(self.github_client),
             "reviews": ReviewsExtractor(self.github_client),
+            "modules": ModuleExtractor(self.github_client),
         }
 
         log_processing_step(f"Initialized {len(self._extractors)} extractors")
@@ -61,6 +64,7 @@ class ComponentManager:
             "metadata": MetadataProcessor(),
             "code_changes": CodeProcessor(),
             "repository": RepoProcessor(),
+            "accuracy_validation": AccuracyValidator(),
         }
 
         log_processing_step(f"Initialized {len(self._processors)} processors")

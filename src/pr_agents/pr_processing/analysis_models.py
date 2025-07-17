@@ -221,3 +221,36 @@ class AISummaries:
     cached: bool = False
     total_tokens: int = 0
     generation_time_ms: int = 0
+
+
+# Accuracy Validation Results
+@dataclass
+class AccuracyComponents:
+    """Individual accuracy component scores."""
+
+    title_accuracy: float  # 0-100
+    description_accuracy: float  # 0-100
+    completeness: float  # 0-100
+    specificity: float  # 0-100
+
+
+@dataclass
+class AccuracyRecommendation:
+    """Recommendation for improving accuracy."""
+
+    component: str  # Which component needs improvement
+    issue: str  # What's wrong
+    suggestion: str  # How to fix it
+    priority: str  # high, medium, low
+
+
+@dataclass
+class AccuracyScore:
+    """Complete accuracy validation result."""
+
+    total_score: float  # Weighted average 0-100
+    component_scores: AccuracyComponents
+    recommendations: list[AccuracyRecommendation] = field(default_factory=list)
+    accuracy_level: str = ""  # excellent, good, fair, poor
+    files_mentioned_ratio: float = 0.0
+    modules_mentioned_ratio: float = 0.0

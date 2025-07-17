@@ -206,6 +206,11 @@ echo "GEMINI_API_KEY=your_gemini_key" >> .env
 echo "ANTHROPIC_API_KEY=your_anthropic_key" >> .env
 # OR
 echo "OPENAI_API_KEY=your_openai_key" >> .env
+
+# Optional: Configure AI features
+echo "AI_DAILY_BUDGET_USD=10.0" >> .env  # Daily spending limit
+echo "AI_CACHE_TTL=86400" >> .env  # Cache for 24 hours
+echo "WEBHOOK_SECRET=your_webhook_secret" >> .env  # For GitHub webhooks
 ```
 
 ### Logging Configuration
@@ -279,7 +284,9 @@ formatted_content = output_manager.format(results, "markdown")
 print(formatted_content)
 ```
 
-### AI-Powered Summaries
+### AI-Powered Features
+
+The library includes advanced AI capabilities for intelligent PR analysis:
 
 ```python
 # Initialize coordinator with AI enabled
@@ -296,14 +303,28 @@ print(f"Executive: {ai_summaries['executive_summary']['summary']}")
 print(f"Product: {ai_summaries['product_summary']['summary']}")
 print(f"Developer: {ai_summaries['developer_summary']['summary']}")
 
-# Save analysis with AI summaries included
-results, path = coordinator.analyze_pr_and_save(
-    "https://github.com/owner/repo/pull/123",
-    output_path="pr_analysis_with_ai",
-    output_format="markdown",
-    run_processors=["metadata", "code_changes", "ai_summaries"]
+# Provide feedback to improve future summaries
+coordinator.ai_service.add_feedback(
+    pr_url="https://github.com/owner/repo/pull/123",
+    persona="executive",
+    summary=ai_summaries['executive_summary']['summary'],
+    feedback_type="rating",
+    feedback_value=5  # 1-5 stars
 )
+
+# Check AI costs
+cost_report = coordinator.ai_service.get_cost_report(days=7)
+print(f"Weekly AI spend: ${cost_report['total_cost']:.2f}")
 ```
+
+**AI Features include:**
+- **Cost Optimization**: Automatic provider selection to minimize costs
+- **Feedback System**: Learn from user ratings and corrections
+- **Custom Models**: Support for repository-specific prompts
+- **Real-time Webhooks**: Automatic analysis on PR events
+- **Budget Control**: Set daily spending limits
+
+See [AI Features Documentation](docs/ai-features.md) for complete details.
 
 ### Selective Processing
 
