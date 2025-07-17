@@ -2,8 +2,9 @@
 
 import asyncio
 import os
+from collections.abc import AsyncIterator
 from datetime import datetime
-from typing import Any, AsyncIterator
+from typing import Any
 
 from loguru import logger
 
@@ -12,10 +13,15 @@ from src.pr_agents.pr_processing.models import CodeChanges
 from src.pr_agents.services.ai.base import BaseAIService
 from src.pr_agents.services.ai.cache import SummaryCache
 from src.pr_agents.services.ai.config import AIConfig
-from src.pr_agents.services.ai.cost_optimizer import CostOptimizer, ProviderName
+# Cost optimizer removed - using only specified provider
 from src.pr_agents.services.ai.feedback import FeedbackIntegrator, FeedbackStore
 from src.pr_agents.services.ai.prompts import PromptBuilder
 from src.pr_agents.services.ai.providers.base import BaseLLMProvider
+from src.pr_agents.services.ai.providers.free_tier import (
+    BasicSummaryProvider,
+    FreeTierGeminiProvider,
+)
+from src.pr_agents.services.ai.providers.claude_direct import ClaudeDirectProvider
 from src.pr_agents.services.ai.streaming import StreamingHandler
 from src.pr_agents.services.ai.validators import SummaryValidator
 
@@ -27,7 +33,6 @@ class AIService(BaseAIService):
         self,
         provider: BaseLLMProvider | None = None,
         config: AIConfig | None = None,
-        enable_cost_optimization: bool = True,
         enable_feedback: bool = True,
     ):
         """Initialize AI service.
@@ -35,7 +40,6 @@ class AIService(BaseAIService):
         Args:
             provider: LLM provider instance (if None, will create from env)
             config: AI configuration (if None, will use defaults from env)
-            enable_cost_optimization: Whether to enable cost optimization
             enable_feedback: Whether to enable feedback system
         """
         self.config = config or AIConfig.from_env()
@@ -50,15 +54,7 @@ class AIService(BaseAIService):
             else None
         )
 
-        # Initialize cost optimizer
-        self.cost_optimizer = (
-            CostOptimizer(
-                quality_threshold=0.8,
-                budget_limit=float(os.getenv("AI_DAILY_BUDGET_USD", "10.0")),
-            )
-            if enable_cost_optimization
-            else None
-        )
+        # Cost optimizer removed - using only specified provider
 
         # Initialize feedback system
         if enable_feedback:
@@ -68,44 +64,85 @@ class AIService(BaseAIService):
             self.feedback_store = None
             self.feedback_integrator = None
 
-    def _create_provider_from_env(self, provider_name: str | None = None) -> BaseLLMProvider:
+    def _create_provider_from_env(
+        self, provider_name: str | None = None, model_name: str | None = None
+    ) -> BaseLLMProvider:
         """Create provider based on environment configuration.
-        
+
         Args:
             provider_name: Optional provider name override
-            
+            model_name: Optional model name override
+
         Returns:
             LLM provider instance
         """
         if not provider_name:
             provider_name = os.getenv("AI_PROVIDER", "gemini").lower()
 
-        if provider_name == "gemini":
-            from src.pr_agents.services.ai.providers.gemini import GeminiProvider
+        if not model_name:
+            model_name = os.getenv("AI_MODEL")
 
+        # Check for API keys and fall back to free tier if not available
+        if provider_name == "gemini":
             api_key = os.getenv("GEMINI_API_KEY")
-            if not api_key:
-                raise ValueError("GEMINI_API_KEY not set")
-            return GeminiProvider(api_key)
+            if api_key:
+                from src.pr_agents.services.ai.providers.gemini import GeminiProvider
+
+                return GeminiProvider(api_key, model_name=model_name or "gemini-pro")
+            else:
+                logger.warning("GEMINI_API_KEY not set, attempting free tier")
+                free_provider = FreeTierGeminiProvider(
+                    model_name=model_name or "gemini-1.5-flash"
+                )
+                if free_provider.is_available:
+                    logger.info("Using Gemini free tier")
+                    return free_provider
+                else:
+                    logger.warning(
+                        "Gemini free tier not available, falling back to basic summaries"
+                    )
+                    return BasicSummaryProvider()
 
         elif provider_name == "claude":
             from src.pr_agents.services.ai.providers.claude import ClaudeProvider
 
             api_key = os.getenv("ANTHROPIC_API_KEY")
             if not api_key:
-                raise ValueError("ANTHROPIC_API_KEY not set")
-            return ClaudeProvider(api_key)
+                logger.warning(
+                    "ANTHROPIC_API_KEY not set, falling back to basic summaries"
+                )
+                return BasicSummaryProvider()
+            return ClaudeProvider(
+                api_key, model_name=model_name or "claude-3-sonnet-20240229"
+            )
 
         elif provider_name == "openai":
             from src.pr_agents.services.ai.providers.openai import OpenAIProvider
 
             api_key = os.getenv("OPENAI_API_KEY")
             if not api_key:
-                raise ValueError("OPENAI_API_KEY not set")
-            return OpenAIProvider(api_key)
+                logger.warning(
+                    "OPENAI_API_KEY not set, falling back to basic summaries"
+                )
+                return BasicSummaryProvider()
+            return OpenAIProvider(
+                api_key, model_name=model_name or "gpt-4-turbo-preview"
+            )
+
+        elif provider_name == "basic":
+            # Explicitly use basic summaries
+            return BasicSummaryProvider()
+        
+        elif provider_name == "claude-direct":
+            # Use Claude (current assistant) directly
+            logger.info("Using Claude direct provider (no API key needed)")
+            return ClaudeDirectProvider()
 
         else:
-            raise ValueError(f"Unknown AI provider: {provider_name}")
+            logger.error(
+                f"Unknown AI provider: {provider_name}, falling back to basic summaries"
+            )
+            return BasicSummaryProvider()
 
     async def generate_summaries(
         self,
@@ -139,28 +176,7 @@ class AIService(BaseAIService):
                 cached_summaries.cached = True
                 return cached_summaries
 
-        # Select optimal provider if cost optimization is enabled
-        if self.cost_optimizer:
-            # Estimate tokens for each persona
-            executive_tokens = 150
-            product_tokens = 300
-            developer_tokens = 500
-            total_output_tokens = executive_tokens + product_tokens + developer_tokens
-
-            # Build combined prompt for estimation
-            sample_prompt = self.prompt_builder.build_prompt(
-                "executive", code_changes, repo_context, pr_metadata
-            )
-
-            # Select provider
-            optimal_provider = self.cost_optimizer.select_optimal_provider(
-                sample_prompt, total_output_tokens
-            )
-
-            # Switch provider if different
-            if optimal_provider.value != self.provider.name:
-                logger.info(f"Switching to {optimal_provider.value} for cost optimization")
-                self.provider = self._create_provider_from_env(optimal_provider.value)
+        # Using only the specified provider - no automatic switching
 
         # Generate summaries for each persona
         personas = ["executive", "product", "developer"]
@@ -170,9 +186,15 @@ class AIService(BaseAIService):
         # Check if we should adjust prompts based on feedback
         if self.feedback_integrator:
             for persona in personas:
-                if self.feedback_integrator.should_adjust_prompt(persona, self.provider.name):
-                    adjustments = self.feedback_integrator.get_prompt_adjustments(persona)
-                    logger.info(f"Adjusting prompt for {persona} based on feedback: {adjustments}")
+                if self.feedback_integrator.should_adjust_prompt(
+                    persona, self.provider.name
+                ):
+                    adjustments = self.feedback_integrator.get_prompt_adjustments(
+                        persona
+                    )
+                    logger.info(
+                        f"Adjusting prompt for {persona} based on feedback: {adjustments}"
+                    )
                     # Pass adjustments to prompt builder (would need to update PromptBuilder)
 
         # Run all persona generations concurrently
@@ -212,26 +234,50 @@ class AIService(BaseAIService):
             self.cache.set(cache_key, ai_summaries)
             logger.info(f"Cached summaries with key: {cache_key}")
 
-        # Record usage for cost tracking
-        if self.cost_optimizer:
-            pr_url = pr_metadata.get("url", "unknown")
-            for persona in personas:
-                # Estimate tokens per persona (rough estimate)
-                tokens_map = {"executive": 150, "product": 300, "developer": 500}
-                output_tokens = tokens_map.get(persona, 300)
-                input_tokens = len(self.prompt_builder.build_prompt(
-                    persona, code_changes, repo_context, pr_metadata
-                )) // 4  # Rough estimate
-                
-                self.cost_optimizer.record_usage(
-                    ProviderName(self.provider.name),
-                    input_tokens,
-                    output_tokens,
-                    persona,
-                    pr_url,
-                )
+        # Cost tracking removed - using only specified provider
 
         return ai_summaries
+
+    def switch_model(
+        self, provider_name: str | None = None, model_name: str | None = None
+    ) -> None:
+        """Switch to a different model or provider.
+
+        Args:
+            provider_name: Provider to switch to (gemini, claude, openai, basic)
+            model_name: Specific model to use (e.g., gemini-1.5-flash, gpt-4, claude-3-opus)
+        """
+        logger.info(f"Switching model: provider={provider_name}, model={model_name}")
+
+        # Create new provider with specified settings
+        new_provider = self._create_provider_from_env(provider_name, model_name)
+
+        # Update the provider
+        self.provider = new_provider
+
+        # Clear cache if switching models (optional)
+        if self.cache:
+            self.cache.clear()
+
+        logger.info(
+            f"Switched to {self.provider.name} provider with model {getattr(self.provider, 'model_name', 'unknown')}"
+        )
+
+    def get_current_model_info(self) -> dict[str, Any]:
+        """Get information about the current model.
+
+        Returns:
+            Dictionary with provider and model information
+        """
+        return {
+            "provider": self.provider.name,
+            "model": getattr(self.provider, "model_name", "unknown"),
+            "supports_streaming": self.provider.supports_streaming,
+            "is_free_tier": isinstance(
+                self.provider, FreeTierGeminiProvider | BasicSummaryProvider
+            ),
+            "has_api_key": self.provider.name not in ["basic", "gemini-free"],
+        }
 
     async def _generate_persona_summary(
         self,
@@ -406,7 +452,7 @@ class AIService(BaseAIService):
 
         # Start streaming for each persona
         personas = ["executive", "product", "developer"]
-        
+
         for persona in personas:
             # Build prompt
             prompt = self.prompt_builder.build_prompt(
@@ -429,15 +475,19 @@ class AIService(BaseAIService):
                 handler.add_response(persona, stream)
             else:
                 # Fallback to non-streaming
-                logger.warning(f"{self.provider.name} doesn't support streaming, using fallback")
+                logger.warning(
+                    f"{self.provider.name} doesn't support streaming, using fallback"
+                )
                 response = await self.provider.generate(
                     prompt,
                     max_tokens=persona_config.max_tokens,
                     temperature=persona_config.temperature,
                 )
+
                 # Create fake stream
-                async def fake_stream():
-                    yield response.content
+                async def fake_stream(resp=response):
+                    yield resp.content
+
                 handler.add_response(persona, fake_stream())
 
         # Stream all responses
@@ -481,10 +531,8 @@ class AIService(BaseAIService):
         Returns:
             Cost statistics
         """
-        if not self.cost_optimizer:
-            return {"error": "Cost optimization not enabled"}
-
-        return self.cost_optimizer.get_usage_report(days)
+        # Cost optimizer removed - not tracking costs
+        return {"error": "Cost optimization has been disabled"}
 
     def get_feedback_stats(self) -> dict[str, Any]:
         """Get feedback statistics.

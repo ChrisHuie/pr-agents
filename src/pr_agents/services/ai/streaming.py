@@ -1,6 +1,6 @@
 """Streaming support for AI summary generation."""
 
-from typing import Any, AsyncIterator
+from collections.abc import AsyncIterator
 
 from src.pr_agents.pr_processing.analysis_models import PersonaSummary
 
@@ -65,7 +65,6 @@ class StreamingHandler:
         Yields:
             Tuples of (persona, chunk) for each text chunk
         """
-        import asyncio
 
         # Create tasks for each stream
         async def stream_persona(persona: str, response: StreamingResponse):
@@ -99,7 +98,9 @@ class StreamingHandler:
         queues = [asyncio.Queue() for _ in streams]
         finished = [False] * len(streams)
 
-        async def fill_queue(stream_idx: int, stream: AsyncIterator, queue: asyncio.Queue):
+        async def fill_queue(
+            stream_idx: int, stream: AsyncIterator, queue: asyncio.Queue
+        ):
             try:
                 async for item in stream:
                     await queue.put(item)

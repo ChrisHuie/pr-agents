@@ -1,12 +1,16 @@
 """Tests for webhook handler."""
 
 import asyncio
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import Mock
 
 import pytest
 
 from src.pr_agents.pr_processing.coordinator import PRCoordinator
-from src.pr_agents.services.webhook_handler import WebhookConfig, WebhookEvent, WebhookHandler
+from src.pr_agents.services.webhook_handler import (
+    WebhookConfig,
+    WebhookEvent,
+    WebhookHandler,
+)
 
 
 class TestWebhookHandler:
@@ -25,23 +29,26 @@ class TestWebhookHandler:
     def test_signature_verification(self):
         """Test webhook signature verification."""
         payload = b'{"test": "data"}'
-        
+
         # Test with no secret
         handler_no_secret = WebhookHandler(self.mock_coordinator, WebhookConfig())
         assert handler_no_secret.verify_signature(payload, "any_signature")
-        
+
         # Test with correct signature
-        import hmac
         import hashlib
-        
-        correct_sig = "sha256=" + hmac.new(
-            b"test_secret",
-            payload,
-            hashlib.sha256,
-        ).hexdigest()
-        
+        import hmac
+
+        correct_sig = (
+            "sha256="
+            + hmac.new(
+                b"test_secret",
+                payload,
+                hashlib.sha256,
+            ).hexdigest()
+        )
+
         assert self.handler.verify_signature(payload, correct_sig)
-        
+
         # Test with incorrect signature
         assert not self.handler.verify_signature(payload, "sha256=wrong")
 
@@ -55,7 +62,7 @@ class TestWebhookHandler:
         )
         assert result["status"] == "ignored"
         assert result["reason"] == "event_type_not_allowed"
-        
+
         # Test ignored action
         result = await self.handler.handle_webhook(
             event_type="pull_request",
@@ -63,7 +70,7 @@ class TestWebhookHandler:
         )
         assert result["status"] == "ignored"
         assert result["reason"] == "action_not_allowed"
-        
+
         # Test draft PR
         result = await self.handler.handle_webhook(
             event_type="pull_request",
@@ -90,7 +97,7 @@ class TestWebhookHandler:
             },
             delivery_id="12345",
         )
-        
+
         assert result["status"] == "queued"
         assert result["event_id"] == "12345"
         assert result["queue_size"] == 1
@@ -102,7 +109,7 @@ class TestWebhookHandler:
         self.mock_coordinator.analyze_pr_and_save = Mock(
             return_value=({"results": "test"}, "output.json")
         )
-        
+
         # Create event
         event = WebhookEvent(
             event_type="pull_request",
@@ -114,13 +121,13 @@ class TestWebhookHandler:
             },
             timestamp=asyncio.get_event_loop().time(),
         )
-        
+
         # Process event
         await self.handler._process_single_event(event)
-        
+
         # Give async task time to complete
         await asyncio.sleep(0.1)
-        
+
         # Should have triggered analysis
         assert self.mock_coordinator.analyze_pr_and_save.called
 
@@ -129,15 +136,15 @@ class TestWebhookHandler:
         """Test webhook callback registration and triggering."""
         callback_called = False
         callback_event = None
-        
+
         async def test_callback(event):
             nonlocal callback_called, callback_event
             callback_called = True
             callback_event = event
-        
+
         # Register callback
         self.handler.register_callback("pull_request", test_callback)
-        
+
         # Handle webhook
         await self.handler.handle_webhook(
             event_type="pull_request",
@@ -146,10 +153,10 @@ class TestWebhookHandler:
                 "pull_request": {"html_url": "test_url", "draft": False},
             },
         )
-        
+
         # Process queue
         await self.handler._process_events()
-        
+
         # Check callback was triggered
         assert callback_called
         assert callback_event is not None
@@ -171,17 +178,17 @@ class TestWebhookHandler:
             },
             timestamp=asyncio.get_event_loop().time(),
         )
-        
+
         # Process event
         await self.handler._process_single_event(event)
-        
+
         # Should log the request (would trigger analysis if auto_analyze=True)
         # In real implementation, this would queue analysis
 
     def test_queue_status(self):
         """Test getting queue status."""
         status = self.handler.get_queue_status()
-        
+
         assert "queue_size" in status
         assert "processing" in status
         assert "allowed_events" in status

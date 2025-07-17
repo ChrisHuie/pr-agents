@@ -53,7 +53,7 @@ class FeedbackStore:
         """Load feedback from storage."""
         if self.storage_path.exists():
             try:
-                with open(self.storage_path, "r") as f:
+                with open(self.storage_path) as f:
                     data = json.load(f)
                     self.feedback_entries = [
                         FeedbackEntry(
@@ -128,7 +128,9 @@ class FeedbackStore:
             f"(PR: {pr_url}, value: {feedback_value})"
         )
 
-    def get_feedback_stats(self, persona: str | None = None) -> dict[str, FeedbackStats]:
+    def get_feedback_stats(
+        self, persona: str | None = None
+    ) -> dict[str, FeedbackStats]:
         """Get feedback statistics.
 
         Args:
@@ -167,15 +169,24 @@ class FeedbackStore:
             elif entry.feedback_type == "comment":
                 # Analyze sentiment of comment (simplified)
                 comment = str(entry.feedback_value).lower()
-                if any(word in comment for word in ["good", "great", "excellent", "helpful"]):
+                if any(
+                    word in comment
+                    for word in ["good", "great", "excellent", "helpful"]
+                ):
                     stats["positive"] += 1
-                elif any(word in comment for word in ["bad", "poor", "wrong", "incorrect"]):
+                elif any(
+                    word in comment for word in ["bad", "poor", "wrong", "incorrect"]
+                ):
                     stats["negative"] += 1
 
         # Convert to FeedbackStats
         result = {}
         for persona_name, stats in stats_by_persona.items():
-            avg_rating = sum(stats["ratings"]) / len(stats["ratings"]) if stats["ratings"] else None
+            avg_rating = (
+                sum(stats["ratings"]) / len(stats["ratings"])
+                if stats["ratings"]
+                else None
+            )
 
             result[persona_name] = FeedbackStats(
                 persona=persona_name,
@@ -353,7 +364,9 @@ class FeedbackIntegrator:
             adjustments["emphasize_clarity"] = True
 
             # Find common patterns in low-rated summaries
-            common_phrases = self._find_common_phrases([e.summary_text for e in low_rated])
+            common_phrases = self._find_common_phrases(
+                [e.summary_text for e in low_rated]
+            )
             adjustments["avoid_patterns"] = common_phrases
 
         return adjustments
@@ -384,7 +397,9 @@ class FeedbackIntegrator:
 
         # Return phrases that appear in multiple texts
         common = [
-            phrase for phrase, count in phrase_counts.items() if count >= len(texts) * 0.3
+            phrase
+            for phrase, count in phrase_counts.items()
+            if count >= len(texts) * 0.3
         ]
 
         return common[:5]  # Top 5 common phrases

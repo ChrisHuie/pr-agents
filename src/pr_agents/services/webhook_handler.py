@@ -3,9 +3,10 @@
 import asyncio
 import hashlib
 import hmac
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Callable
+from typing import Any
 
 from loguru import logger
 
@@ -86,11 +87,14 @@ class WebhookHandler:
             logger.warning("No webhook secret configured, skipping verification")
             return True
 
-        expected_signature = "sha256=" + hmac.new(
-            self.config.secret.encode(),
-            payload,
-            hashlib.sha256,
-        ).hexdigest()
+        expected_signature = (
+            "sha256="
+            + hmac.new(
+                self.config.secret.encode(),
+                payload,
+                hashlib.sha256,
+            ).hexdigest()
+        )
 
         return hmac.compare_digest(expected_signature, signature)
 
@@ -272,7 +276,7 @@ class WebhookHandler:
         if "@pr-agent" in comment_body or "!analyze" in comment_body:
             pr_url = pr.get("html_url", "")
             logger.info(f"Analysis requested via comment on {pr_url}")
-            
+
             if self.config.auto_analyze:
                 asyncio.create_task(self._analyze_pr_async(pr_url, event))
 

@@ -84,7 +84,9 @@ class CostOptimizer:
         ),
     }
 
-    def __init__(self, quality_threshold: float = 0.8, budget_limit: float | None = None):
+    def __init__(
+        self, quality_threshold: float = 0.8, budget_limit: float | None = None
+    ):
         """Initialize cost optimizer.
 
         Args:
@@ -134,7 +136,9 @@ class CostOptimizer:
 
         # Calculate cost
         input_cost = (input_tokens / 1000) * provider_info.cost_per_1k_input_tokens
-        output_cost = (expected_output_tokens / 1000) * provider_info.cost_per_1k_output_tokens
+        output_cost = (
+            expected_output_tokens / 1000
+        ) * provider_info.cost_per_1k_output_tokens
         total_cost = input_cost + output_cost
 
         return CostEstimate(
@@ -170,14 +174,19 @@ class CostOptimizer:
         # Get estimates for all providers
         estimates = []
         for provider in ProviderName:
-            estimate = self.get_cost_estimate(provider, input_text, expected_output_tokens)
+            estimate = self.get_cost_estimate(
+                provider, input_text, expected_output_tokens
+            )
 
             # Check quality threshold
             if estimate.quality_score < self.quality_threshold:
                 continue
 
             # Check budget
-            if self.budget_limit and current_spend + estimate.estimated_cost > self.budget_limit:
+            if (
+                self.budget_limit
+                and current_spend + estimate.estimated_cost > self.budget_limit
+            ):
                 logger.warning(f"Skipping {provider.value} due to budget constraints")
                 continue
 
@@ -194,7 +203,9 @@ class CostOptimizer:
             estimates.sort(key=lambda e: (-e.speed_score, e.estimated_cost))
         elif require_streaming:
             # For streaming, balance speed and quality
-            estimates.sort(key=lambda e: (-(e.speed_score * e.quality_score), e.estimated_cost))
+            estimates.sort(
+                key=lambda e: (-(e.speed_score * e.quality_score), e.estimated_cost)
+            )
         else:
             # Default: optimize for cost/quality ratio
             estimates.sort(key=lambda e: e.estimated_cost / e.quality_score)
@@ -282,10 +293,16 @@ class CostOptimizer:
         for usage in recent_usage:
             # By provider
             if usage.provider.value not in by_provider:
-                by_provider[usage.provider.value] = {"count": 0, "cost": 0.0, "tokens": 0}
+                by_provider[usage.provider.value] = {
+                    "count": 0,
+                    "cost": 0.0,
+                    "tokens": 0,
+                }
             by_provider[usage.provider.value]["count"] += 1
             by_provider[usage.provider.value]["cost"] += usage.cost
-            by_provider[usage.provider.value]["tokens"] += usage.input_tokens + usage.output_tokens
+            by_provider[usage.provider.value]["tokens"] += (
+                usage.input_tokens + usage.output_tokens
+            )
 
             # By persona
             if usage.persona not in by_persona:
@@ -318,7 +335,9 @@ class CostOptimizer:
                 info.cost_per_1k_input_tokens * 2 + info.cost_per_1k_output_tokens * 0.5
             ) / 1000  # Assume 2k input, 500 output
 
-            score = info.quality_score / (avg_cost_per_request + 0.001)  # Avoid division by zero
+            score = info.quality_score / (
+                avg_cost_per_request + 0.001
+            )  # Avoid division by zero
             rankings.append((provider, score))
 
         rankings.sort(key=lambda x: x[1], reverse=True)

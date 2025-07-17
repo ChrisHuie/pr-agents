@@ -54,17 +54,17 @@ class FineTuningManager:
         """Load model configurations from disk."""
         if self.config_path.exists():
             try:
-                with open(self.config_path, "r") as f:
+                with open(self.config_path) as f:
                     data = json.load(f)
-                    
+
                 # Load model versions
                 for model_data in data.get("models", []):
                     model = ModelVersion(**model_data)
                     self.models[model.model_id] = model
-                
+
                 # Load custom prompts
                 self.custom_prompts = data.get("custom_prompts", {})
-                
+
                 logger.info(f"Loaded {len(self.models)} fine-tuned models")
             except Exception as e:
                 logger.error(f"Error loading fine-tuning configs: {e}")
@@ -232,7 +232,7 @@ class FineTuningManager:
         for entry in feedback_store.feedback_entries:
             if entry.feedback_type == "rating":
                 rating = int(entry.feedback_value)
-                
+
                 # Create training example
                 example = {
                     "prompt": f"Generate a {entry.persona} summary for this PR",
@@ -350,11 +350,15 @@ class PromptOptimizer:
 
         # If feedback suggests shorter summaries
         if feedback_data.get("adjust_length") == "shorter":
-            optimized += "\n\nIMPORTANT: Keep the summary concise and focused on key points."
+            optimized += (
+                "\n\nIMPORTANT: Keep the summary concise and focused on key points."
+            )
 
         # If feedback suggests more clarity
         if feedback_data.get("emphasize_clarity"):
-            optimized += "\n\nFocus on clarity and avoid technical jargon when possible."
+            optimized += (
+                "\n\nFocus on clarity and avoid technical jargon when possible."
+            )
 
         # Repository-specific adjustments
         if repository_type == "prebid":

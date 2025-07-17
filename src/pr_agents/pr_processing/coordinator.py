@@ -4,6 +4,7 @@ PR Processing Coordinator - orchestrates extraction and processing with strict b
 This is the main facade that delegates to specialized sub-coordinators.
 """
 
+import os
 from pathlib import Path
 from typing import Any
 
@@ -69,17 +70,31 @@ class PRCoordinator:
     def _register_ai_processor(self) -> None:
         """Register the AI processor if enabled."""
         try:
-            from ..services.ai import AIService
-            from .processors.ai_processor import AIProcessor
+            # Check if we should use ADK
+            ai_provider = os.getenv("AI_PROVIDER", "gemini").lower()
+            
+            if ai_provider == "adk" or ai_provider == "google-adk":
+                logger.info("Registering AI processor with Google ADK")
+                from ..services.ai.adk_service import ADKAIService
+                from .processors.ai_processor import AIProcessor
+                
+                self.ai_service = ADKAIService()
+                ai_processor = AIProcessor(self.ai_service)
+                self.component_manager.register_processor("ai_summaries", ai_processor)
+                log_processing_step("AI processor registered with ADK")
+            else:
+                from ..services.ai import AIService
+                from .processors.ai_processor import AIProcessor
 
-            logger.info("Registering AI processor")
-            ai_service = AIService()
-            ai_processor = AIProcessor(ai_service)
-            self.component_manager.register_processor("ai_summaries", ai_processor)
-            log_processing_step("AI processor registered")
+                logger.info("Registering AI processor")
+                self.ai_service = AIService()
+                ai_processor = AIProcessor(self.ai_service)
+                self.component_manager.register_processor("ai_summaries", ai_processor)
+                log_processing_step("AI processor registered")
         except Exception as e:
             logger.error(f"Failed to register AI processor: {str(e)}")
             self.ai_enabled = False
+            self.ai_service = None
 
     # ===================
     # Single PR Analysis
@@ -332,6 +347,43 @@ class PRCoordinator:
         return self.batch_coordinator.analyze_prs_between_releases(
             repo_name, from_tag, to_tag, extract_components, run_processors
         )
+
+    # ===================
+    # AI Model Management
+    # ===================
+
+    def switch_ai_model(
+        self, provider_name: str | None = None, model_name: str | None = None
+    ) -> None:
+        """Switch AI model or provider.
+
+        Args:
+            provider_name: Provider to switch to (gemini, claude, openai, basic)
+            model_name: Specific model to use
+
+        Raises:
+            ValueError: If AI is not enabled
+        """
+        if not self.ai_enabled or not self.ai_service:
+            raise ValueError(
+                "AI is not enabled. Initialize PRCoordinator with ai_enabled=True"
+            )
+
+        self.ai_service.switch_model(provider_name, model_name)
+        logger.info("AI model switched successfully")
+
+    def get_ai_model_info(self) -> dict[str, Any]:
+        """Get current AI model information.
+
+        Returns:
+            Dictionary with model info or None if AI not enabled
+        """
+        if not self.ai_enabled or not self.ai_service:
+            return {"ai_enabled": False, "message": "AI is not enabled"}
+
+        model_info = self.ai_service.get_current_model_info()
+        model_info["ai_enabled"] = True
+        return model_info
 
     # ===================
     # Internal Helpers

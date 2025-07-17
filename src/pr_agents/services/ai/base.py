@@ -1,7 +1,8 @@
 """Base interface for AI services."""
 
 from abc import ABC, abstractmethod
-from typing import Any, AsyncIterator
+from collections.abc import AsyncIterator
+from typing import Any
 
 from src.pr_agents.pr_processing.analysis_models import AISummaries
 from src.pr_agents.pr_processing.models import CodeChanges
@@ -53,8 +54,10 @@ class BaseAIService(ABC):
             Override in subclasses for true streaming support.
         """
         # Default: Generate non-streaming and yield complete summaries
-        summaries = await self.generate_summaries(code_changes, repo_context, pr_metadata)
-        
+        summaries = await self.generate_summaries(
+            code_changes, repo_context, pr_metadata
+        )
+
         yield ("executive", summaries.executive_summary.summary)
         yield ("product", summaries.product_summary.summary)
         yield ("developer", summaries.developer_summary.summary)

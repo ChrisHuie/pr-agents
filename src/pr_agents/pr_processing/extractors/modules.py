@@ -183,9 +183,7 @@ class ModuleExtractor(BaseExtractor):
 
         return fnmatch.fnmatch(file_path, pattern)
 
-    def _extract_module_name(
-        self, file_path: str, naming_pattern: str
-    ) -> str | None:
+    def _extract_module_name(self, file_path: str, naming_pattern: str) -> str | None:
         """Extract module name from file path based on naming pattern.
 
         Args:
