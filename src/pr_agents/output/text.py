@@ -233,23 +233,38 @@ class TextFormatter(BaseFormatter):
         # Executive Summary
         if "executive_summary" in ai_summaries:
             exec_summary = ai_summaries["executive_summary"]
-            lines.append("EXECUTIVE SUMMARY:")
-            lines.append(f"  {exec_summary.get('summary', 'No summary available')}")
-            lines.append("")
+            summary_text = exec_summary.get('summary', 'No summary available')
+            if summary_text != "[Not requested]":
+                lines.append("EXECUTIVE SUMMARY:")
+                lines.append(f"  {summary_text}")
+                lines.append("")
 
         # Product Manager Summary
         if "product_summary" in ai_summaries:
             product_summary = ai_summaries["product_summary"]
-            lines.append("PRODUCT MANAGER SUMMARY:")
-            lines.append(f"  {product_summary.get('summary', 'No summary available')}")
-            lines.append("")
+            summary_text = product_summary.get('summary', 'No summary available')
+            if summary_text != "[Not requested]":
+                lines.append("PRODUCT MANAGER SUMMARY:")
+                lines.append(f"  {summary_text}")
+                lines.append("")
 
         # Developer Summary
         if "developer_summary" in ai_summaries:
             dev_summary = ai_summaries["developer_summary"]
-            lines.append("TECHNICAL DEVELOPER SUMMARY:")
-            lines.append(f"  {dev_summary.get('summary', 'No summary available')}")
-            lines.append("")
+            summary_text = dev_summary.get('summary', 'No summary available')
+            if summary_text != "[Not requested]":
+                lines.append("TECHNICAL DEVELOPER SUMMARY:")
+                lines.append(f"  {summary_text}")
+                lines.append("")
+
+        # Code Review
+        if "reviewer_summary" in ai_summaries:
+            reviewer_summary = ai_summaries["reviewer_summary"]
+            summary_text = reviewer_summary.get('summary', 'No summary available')
+            if summary_text != "[Not requested]":
+                lines.append("CODE REVIEW:")
+                lines.append(f"  {summary_text}")
+                lines.append("")
 
         # Summary Metadata
         lines.append("Summary Generation Details:")

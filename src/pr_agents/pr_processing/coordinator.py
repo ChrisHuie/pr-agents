@@ -72,16 +72,26 @@ class PRCoordinator:
         try:
             # Check if we should use ADK
             ai_provider = os.getenv("AI_PROVIDER", "gemini").lower()
-            
+
             if ai_provider == "adk" or ai_provider == "google-adk":
                 logger.info("Registering AI processor with Google ADK")
                 from ..services.ai.adk_service import ADKAIService
                 from .processors.ai_processor import AIProcessor
-                
-                self.ai_service = ADKAIService()
+
+                # Enable batch context for ADK
+                self.ai_service = ADKAIService(use_batch_context=True)
                 ai_processor = AIProcessor(self.ai_service)
                 self.component_manager.register_processor("ai_summaries", ai_processor)
                 log_processing_step("AI processor registered with ADK")
+            elif ai_provider == "claude-adk":
+                logger.info("Registering AI processor with Claude ADK")
+                from ..services.ai.claude_adk_service import ClaudeADKService
+                from .processors.ai_processor import AIProcessor
+
+                self.ai_service = ClaudeADKService()
+                ai_processor = AIProcessor(self.ai_service)
+                self.component_manager.register_processor("ai_summaries", ai_processor)
+                log_processing_step("AI processor registered with Claude ADK")
             else:
                 from ..services.ai import AIService
                 from .processors.ai_processor import AIProcessor

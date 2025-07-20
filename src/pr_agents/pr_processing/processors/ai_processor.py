@@ -53,6 +53,7 @@ class AIProcessor(BaseProcessor):
             code_data = component_data.get("code")
             metadata = component_data.get("metadata", {})
             repo_url = component_data.get("repo_url", "")
+            logger.debug(f"AI Processor received repo_url: {repo_url}")
 
             if not code_data:
                 return ProcessingResult(
@@ -194,9 +195,10 @@ class AIProcessor(BaseProcessor):
 
         # Handle GitHub URLs
         if "github.com" in repo_url:
+            # Extract owner/repo from URL like https://github.com/owner/repo
             parts = repo_url.rstrip("/").split("/")
-            if len(parts) >= 2:
-                return f"{parts[-2]}/{parts[-1]}"
+            if len(parts) >= 5 and parts[2] == "github.com":
+                return f"{parts[3]}/{parts[4]}"
 
         return repo_url
 

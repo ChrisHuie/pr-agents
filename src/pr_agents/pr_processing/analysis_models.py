@@ -204,7 +204,7 @@ class RepoAnalysisResult:
 class PersonaSummary:
     """Summary for a specific persona."""
 
-    persona: str  # "executive", "product", "developer"
+    persona: str  # "executive", "product", "developer", "reviewer"
     summary: str
     confidence: float
 
@@ -216,6 +216,7 @@ class AISummaries:
     executive_summary: PersonaSummary
     product_summary: PersonaSummary
     developer_summary: PersonaSummary
+    reviewer_summary: PersonaSummary
     model_used: str
     generation_timestamp: datetime
     cached: bool = False

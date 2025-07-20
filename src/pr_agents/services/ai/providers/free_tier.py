@@ -133,7 +133,7 @@ class FreeTierGeminiProvider(BaseLLMProvider):
     def name(self) -> str:
         """Return the provider name."""
         return "gemini-free"
-    
+
     async def health_check(self) -> dict[str, Any]:
         """Check health of free tier provider."""
         return {
@@ -141,9 +141,9 @@ class FreeTierGeminiProvider(BaseLLMProvider):
             "provider": self.name,
             "model": self.model_name,
             "tier": "free",
-            "rate_limited": True
+            "rate_limited": True,
         }
-    
+
     @property
     def supports_streaming(self) -> bool:
         """Free tier supports streaming."""

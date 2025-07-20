@@ -26,6 +26,9 @@ dependencies = [
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[project.scripts]
+pr-agents = "pr_agents.cli:main"
+
 [dependency-groups]
 dev = [
     "black>=25.1.0",

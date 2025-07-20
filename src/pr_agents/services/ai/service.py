@@ -13,15 +13,16 @@ from src.pr_agents.pr_processing.models import CodeChanges
 from src.pr_agents.services.ai.base import BaseAIService
 from src.pr_agents.services.ai.cache import SummaryCache
 from src.pr_agents.services.ai.config import AIConfig
+
 # Cost optimizer removed - using only specified provider
 from src.pr_agents.services.ai.feedback import FeedbackIntegrator, FeedbackStore
 from src.pr_agents.services.ai.prompts import PromptBuilder
 from src.pr_agents.services.ai.providers.base import BaseLLMProvider
+from src.pr_agents.services.ai.providers.claude_direct import ClaudeDirectProvider
 from src.pr_agents.services.ai.providers.free_tier import (
     BasicSummaryProvider,
     FreeTierGeminiProvider,
 )
-from src.pr_agents.services.ai.providers.claude_direct import ClaudeDirectProvider
 from src.pr_agents.services.ai.streaming import StreamingHandler
 from src.pr_agents.services.ai.validators import SummaryValidator
 
@@ -132,7 +133,7 @@ class AIService(BaseAIService):
         elif provider_name == "basic":
             # Explicitly use basic summaries
             return BasicSummaryProvider()
-        
+
         elif provider_name == "claude-direct":
             # Use Claude (current assistant) directly
             logger.info("Using Claude direct provider (no API key needed)")

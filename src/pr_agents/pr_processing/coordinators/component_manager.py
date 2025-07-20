@@ -177,8 +177,23 @@ class ComponentManager:
             # AI processor needs multiple components
             # Extract repo URL from metadata if available
             repo_url = ""
-            if pr_data.metadata and hasattr(pr_data.metadata, "url"):
-                repo_url = pr_data.metadata.url
+            if pr_data.metadata:
+                # Extract repository URL from PR URL
+                # Handle both object and dict cases
+                if hasattr(pr_data.metadata, "url"):
+                    pr_url = pr_data.metadata.url
+                elif isinstance(pr_data.metadata, dict) and "url" in pr_data.metadata:
+                    pr_url = pr_data.metadata["url"]
+                else:
+                    pr_url = ""
+                if "github.com" in pr_url:
+                    # Convert PR URL to repo URL
+                    # https://github.com/owner/repo/pull/123 -> https://github.com/owner/repo
+                    parts = pr_url.split("/")
+                    if len(parts) >= 5:
+                        repo_url = f"https://github.com/{parts[3]}/{parts[4]}"
+                else:
+                    repo_url = pr_url
 
             return {
                 "code": pr_data.code_changes,

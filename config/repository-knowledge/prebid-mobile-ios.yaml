@@ -1,0 +1,842 @@
+repository: prebid/prebid-mobile-ios
+type: prebid-mobile-ios
+description: Prebid Mobile SDK for iOS - header bidding for mobile apps
+version: 2.x
+primary_language: Swift
+ecosystem: Mobile/iOS
+
+# Repository overview
+overview:
+  purpose: "Enable header bidding in iOS mobile applications"
+  key_features:
+    - "In-app header bidding for mobile inventory"
+    - "GAM (Google Ad Manager) integration"
+    - "Native, banner, video, and rewarded ad support"
+    - "MRAID 3.0 compliance"
+    - "SKAdNetwork support"
+    - "Privacy compliance (GDPR, CCPA, COPPA)"
+    - "Server-side and client-side bidding"
+  
+  architecture:
+    core_components:
+      - prebid_core: "Core bidding logic and ad unit management"
+      - rendering_module: "Ad rendering and MRAID support"
+      - adapters: "Demand source integrations"
+      - event_handlers: "GAM and other ad server integrations"
+      - cache_manager: "Bid caching functionality"
+    
+    frameworks:
+      - "UIKit and SwiftUI support"
+      - "Objective-C compatibility"
+      - "CocoaPods and SPM distribution"
+      - "XCFramework packaging"
+
+# Directory structure
+directory_structure:
+  PrebidMobile:
+    description: "Core SDK implementation"
+    structure:
+      PrebidMobileCore:
+        - "Prebid.swift": "Main SDK entry point"
+        - "BidManager.swift": "Bid request orchestration"
+        - "AdUnit.swift": "Ad unit configuration"
+        - "TargetingParams.swift": "User targeting"
+      
+      Rendering:
+        - "PBMAdView.swift": "Banner rendering"
+        - "PBMVideoView.swift": "Video rendering"
+        - "PBMInterstitialController.swift": "Interstitial ads"
+        - "MRAIDController.swift": "MRAID implementation"
+      
+      Adapters:
+        - "PrebidServerAdapter.swift": "Prebid Server integration"
+        - "DemandAdapter.swift": "Base adapter protocol"
+      
+      AdServerIntegration:
+        - "GAMUtils.swift": "Google Ad Manager helpers"
+        - "MoPubUtils.swift": "MoPub integration"
+  
+  PrebidMobileTests:
+    description: "Unit and integration tests"
+    structure:
+      - "PrebidMobileCoreTests/": "Core functionality tests"
+      - "RenderingTests/": "Rendering module tests"
+      - "IntegrationTests/": "Ad server integration tests"
+      - "Mocks/": "Test doubles and fixtures"
+  
+  Example:
+    description: "Sample applications"
+    apps:
+      - "Swift/": "Swift example app"
+      - "Objective-C/": "Objective-C example"
+      - "SwiftUI/": "SwiftUI integration example"
+
+# Code examples with full context
+code_examples:
+  basic_integration:
+    description: "Basic banner ad integration"
+    code: |
+      import PrebidMobile
+      import GoogleMobileAds
+      
+      class BannerViewController: UIViewController {
+          @IBOutlet weak var bannerView: GAMBannerView!
+          
+          var adUnit: BannerAdUnit!
+          var request: GAMRequest!
+          
+          override func viewDidLoad() {
+              super.viewDidLoad()
+              
+              // Initialize Prebid
+              Prebid.shared.prebidServerHost = .Rubicon
+              Prebid.shared.prebidServerAccountId = "account-id"
+              
+              // Set targeting parameters
+              Targeting.shared.subjectToGDPR = true
+              Targeting.shared.gdprConsentString = "consent-string"
+              Targeting.shared.coppa = false
+              
+              // Create ad unit
+              adUnit = BannerAdUnit(configId: "config-id", size: CGSize(width: 320, height: 50))
+              
+              // Optional: Set additional parameters
+              adUnit.setAutoRefreshMillis(30000)
+              
+              // Setup GAM banner view
+              bannerView.adUnitID = "/your/gam/ad/unit/id"
+              bannerView.rootViewController = self
+              bannerView.delegate = self
+              
+              // Load ad
+              loadBanner()
+          }
+          
+          func loadBanner() {
+              request = GAMRequest()
+              
+              // Fetch demand
+              adUnit.fetchDemand(adObject: request) { [weak self] resultCode in
+                  print("Prebid demand fetch result: \(resultCode.name())")
+                  
+                  // Load GAM ad with Prebid targeting
+                  self?.bannerView.load(self?.request)
+              }
+          }
+      }
+      
+      // MARK: - GADBannerViewDelegate
+      extension BannerViewController: GADBannerViewDelegate {
+          func bannerViewDidReceiveAd(_ bannerView: GADBannerView) {
+              print("Banner ad loaded successfully")
+              
+              // Check if Prebid won
+              if let prebidWin = GAMUtils.shared.findPrebidCreativeSize(bannerView) {
+                  bannerView.resize(prebidWin)
+              }
+          }
+          
+          func bannerView(_ bannerView: GADBannerView, didFailToReceiveAdWithError error: Error) {
+              print("Banner failed to load: \(error.localizedDescription)")
+          }
+      }
+  
+  interstitial_integration:
+    description: "Interstitial ad implementation"
+    code: |
+      import PrebidMobile
+      import GoogleMobileAds
+      
+      class InterstitialViewController: UIViewController {
+          var interstitialAdUnit: InterstitialAdUnit!
+          var gamInterstitial: GAMInterstitialAd?
+          
+          override func viewDidLoad() {
+              super.viewDidLoad()
+              
+              // Create interstitial ad unit
+              interstitialAdUnit = InterstitialAdUnit(configId: "interstitial-config-id")
+              
+              // Set minimum size requirements (optional)
+              interstitialAdUnit.setMinSizePercentage(width: 50, height: 70)
+              
+              loadInterstitial()
+          }
+          
+          func loadInterstitial() {
+              let request = GAMRequest()
+              
+              interstitialAdUnit.fetchDemand(adObject: request) { [weak self] resultCode in
+                  print("Interstitial demand fetch: \(resultCode.name())")
+                  
+                  GAMInterstitialAd.load(
+                      withAdManagerAdUnitID: "/your/gam/interstitial/id",
+                      request: request
+                  ) { ad, error in
+                      if let error = error {
+                          print("Failed to load interstitial: \(error)")
+                          return
+                      }
+                      
+                      self?.gamInterstitial = ad
+                      self?.gamInterstitial?.fullScreenContentDelegate = self
+                  }
+              }
+          }
+          
+          @IBAction func showInterstitial() {
+              if let interstitial = gamInterstitial {
+                  interstitial.present(fromRootViewController: self)
+              } else {
+                  print("Interstitial not ready")
+              }
+          }
+      }
+      
+      // MARK: - GADFullScreenContentDelegate
+      extension InterstitialViewController: GADFullScreenContentDelegate {
+          func adDidRecordImpression(_ ad: GADFullScreenPresentingAd) {
+              print("Interstitial impression recorded")
+          }
+          
+          func ad(_ ad: GADFullScreenPresentingAd, didFailToPresentFullScreenContentWithError error: Error) {
+              print("Failed to present interstitial: \(error)")
+          }
+          
+          func adWillDismissFullScreenContent(_ ad: GADFullScreenPresentingAd) {
+              // Load next interstitial
+              loadInterstitial()
+          }
+      }
+  
+  native_ad_integration:
+    description: "Native ad implementation"
+    code: |
+      import PrebidMobile
+      import GoogleMobileAds
+      
+      class NativeAdViewController: UIViewController {
+          @IBOutlet weak var nativeAdView: GADNativeAdView!
+          
+          var nativeUnit: NativeRequest!
+          var nativeAd: GADNativeAd?
+          
+          override func viewDidLoad() {
+              super.viewDidLoad()
+              
+              setupNativeAd()
+              loadNativeAd()
+          }
+          
+          func setupNativeAd() {
+              // Create native request with required assets
+              nativeUnit = NativeRequest(configId: "native-config-id")
+              
+              // Add required assets
+              let titleAsset = NativeAssetTitle(length: 90, required: true)
+              titleAsset.ext = ["key": "value"] // optional extensions
+              nativeUnit.addNativeAsset(titleAsset)
+              
+              let iconAsset = NativeAssetImage(type: .Icon, wMin: 50, hMin: 50, required: true)
+              nativeUnit.addNativeAsset(iconAsset)
+              
+              let mainImageAsset = NativeAssetImage(type: .Main, wMin: 200, hMin: 150, required: true)
+              nativeUnit.addNativeAsset(mainImageAsset)
+              
+              let descriptionAsset = NativeAssetData(type: .Description, len: 150, required: true)
+              nativeUnit.addNativeAsset(descriptionAsset)
+              
+              let ctaAsset = NativeAssetData(type: .ctatext, len: 20, required: true)
+              nativeUnit.addNativeAsset(ctaAsset)
+              
+              let sponsoredAsset = NativeAssetData(type: .Sponsored, len: 25, required: false)
+              nativeUnit.addNativeAsset(sponsoredAsset)
+              
+              // Set native event trackers
+              let eventTracker = NativeEventTracker(
+                  event: .Impression,
+                  methods: [.Image, .js],
+                  required: false
+              )
+              nativeUnit.addEventTracker(eventTracker)
+              
+              // Context and placement
+              nativeUnit.context = .Social
+              nativeUnit.placementType = .FeedContent
+              nativeUnit.contextSubType = .Social
+          }
+          
+          func loadNativeAd() {
+              let adLoader = GADAdLoader(
+                  adUnitID: "/your/gam/native/id",
+                  rootViewController: self,
+                  adTypes: [.native],
+                  options: nil
+              )
+              adLoader.delegate = self
+              
+              let request = GAMRequest()
+              
+              // Attach native request to GAM request
+              GAMUtils.shared.prepareRequest(request, nativeRequest: nativeUnit)
+              
+              nativeUnit.fetchDemand(adObject: request) { [weak self] resultCode in
+                  print("Native demand fetch: \(resultCode.name())")
+                  adLoader.load(request)
+              }
+          }
+          
+          func populateNativeAdView() {
+              guard let nativeAd = nativeAd else { return }
+              
+              // Populate the native ad view
+              nativeAdView.nativeAd = nativeAd
+              
+              (nativeAdView.headlineView as? UILabel)?.text = nativeAd.headline
+              (nativeAdView.bodyView as? UILabel)?.text = nativeAd.body
+              (nativeAdView.callToActionView as? UIButton)?.setTitle(nativeAd.callToAction, for: .normal)
+              (nativeAdView.iconView as? UIImageView)?.image = nativeAd.icon?.image
+              (nativeAdView.starRatingView as? UIImageView)?.image = imageOfStars(from: nativeAd.starRating)
+              (nativeAdView.storeView as? UILabel)?.text = nativeAd.store
+              (nativeAdView.priceView as? UILabel)?.text = nativeAd.price
+              (nativeAdView.advertiserView as? UILabel)?.text = nativeAd.advertiser
+              
+              // Media view
+              if let mediaView = nativeAdView.mediaView {
+                  mediaView.mediaContent = nativeAd.mediaContent
+              }
+              
+              // Call to action
+              nativeAdView.callToActionView?.isUserInteractionEnabled = false
+          }
+      }
+      
+      // MARK: - GADNativeAdLoaderDelegate
+      extension NativeAdViewController: GADNativeAdLoaderDelegate {
+          func adLoader(_ adLoader: GADAdLoader, didReceive nativeAd: GADNativeAd) {
+              self.nativeAd = nativeAd
+              nativeAd.delegate = self
+              populateNativeAdView()
+          }
+          
+          func adLoader(_ adLoader: GADAdLoader, didFailToReceiveAdWithError error: Error) {
+              print("Native ad failed to load: \(error)")
+          }
+      }
+      
+      // MARK: - GADNativeAdDelegate
+      extension NativeAdViewController: GADNativeAdDelegate {
+          func nativeAdDidRecordImpression(_ nativeAd: GADNativeAd) {
+              print("Native ad impression recorded")
+          }
+          
+          func nativeAdDidRecordClick(_ nativeAd: GADNativeAd) {
+              print("Native ad clicked")
+          }
+      }
+  
+  video_integration:
+    description: "Video ad implementation with custom controls"
+    code: |
+      import PrebidMobile
+      import GoogleMobileAds
+      
+      class VideoViewController: UIViewController {
+          var videoAdUnit: VideoAdUnit!
+          var gamAdsLoader: IMAAdsLoader!
+          var adsManager: IMAAdsManager?
+          
+          override func viewDidLoad() {
+              super.viewDidLoad()
+              
+              setupVideoAd()
+              setupIMA()
+          }
+          
+          func setupVideoAd() {
+              // Create video ad unit
+              let size = CGSize(width: 640, height: 480)
+              videoAdUnit = VideoAdUnit(configId: "video-config-id", size: size)
+              
+              // Configure video parameters
+              let parameters = VideoParameters()
+              parameters.mimes = ["video/mp4", "video/3gpp"]
+              parameters.protocols = [.VAST_2_0, .VAST_3_0]
+              parameters.playbackMethod = [.AutoPlaySoundOn]
+              parameters.placement = .InStream
+              parameters.maxDuration = 30
+              parameters.minDuration = 5
+              parameters.skipMin = 5
+              parameters.skipAfter = 5
+              
+              videoAdUnit.parameters = parameters
+          }
+          
+          func setupIMA() {
+              let settings = IMASettings()
+              settings.enableBackgroundPlayback = true
+              
+              gamAdsLoader = IMAAdsLoader(settings: settings)
+              gamAdsLoader.delegate = self
+          }
+          
+          func loadVideoAd() {
+              let request = GAMRequest()
+              
+              videoAdUnit.fetchDemand(adObject: request) { [weak self] resultCode in
+                  print("Video demand fetch: \(resultCode.name())")
+                  
+                  // Create IMA ad request
+                  let adTagUrl = self?.buildAdTagUrl(with: request) ?? ""
+                  let adDisplayContainer = IMAAdDisplayContainer(
+                      adContainer: self?.view,
+                      viewController: self
+                  )
+                  let imaRequest = IMAAdsRequest(
+                      adTagUrl: adTagUrl,
+                      adDisplayContainer: adDisplayContainer,
+                      contentPlayhead: nil,
+                      userContext: nil
+                  )
+                  
+                  self?.gamAdsLoader.requestAds(with: imaRequest)
+              }
+          }
+          
+          private func buildAdTagUrl(with request: GAMRequest) -> String {
+              // Build VAST tag URL with targeting parameters
+              var components = URLComponents()
+              components.scheme = "https"
+              components.host = "pubads.g.doubleclick.net"
+              components.path = "/gampad/ads"
+              
+              var queryItems = [URLQueryItem]()
+              queryItems.append(URLQueryItem(name: "iu", value: "/your/video/ad/unit"))
+              queryItems.append(URLQueryItem(name: "sz", value: "640x480"))
+              queryItems.append(URLQueryItem(name: "output", value: "vast"))
+              
+              // Add Prebid targeting
+              if let customTargeting = request.customTargeting {
+                  for (key, value) in customTargeting {
+                      queryItems.append(URLQueryItem(name: "cust_params", value: "\(key)=\(value)"))
+                  }
+              }
+              
+              components.queryItems = queryItems
+              return components.url?.absoluteString ?? ""
+          }
+      }
+      
+      // MARK: - IMAAdsLoaderDelegate
+      extension VideoViewController: IMAAdsLoaderDelegate {
+          func adsLoader(_ loader: IMAAdsLoader!, adsLoadedWith adsLoadedData: IMAAdsLoadedData!) {
+              adsManager = adsLoadedData.adsManager
+              adsManager?.delegate = self
+              adsManager?.initialize(with: nil)
+          }
+          
+          func adsLoader(_ loader: IMAAdsLoader!, failedWith adErrorData: IMAAdLoadingErrorData!) {
+              print("Video ad loading failed: \(adErrorData.adError.message ?? "")")
+          }
+      }
+      
+      // MARK: - IMAAdsManagerDelegate
+      extension VideoViewController: IMAAdsManagerDelegate {
+          func adsManager(_ adsManager: IMAAdsManager!, didReceive event: IMAAdEvent!) {
+              switch event.type {
+              case .LOADED:
+                  adsManager.start()
+              case .STARTED:
+                  print("Video ad started")
+              case .COMPLETE:
+                  print("Video ad completed")
+              default:
+                  break
+              }
+          }
+          
+          func adsManager(_ adsManager: IMAAdsManager!, didReceive error: IMAAdError!) {
+              print("Video ad error: \(error.message ?? "")")
+          }
+          
+          func adsManagerDidRequestContentPause(_ adsManager: IMAAdsManager!) {
+              // Pause content
+          }
+          
+          func adsManagerDidRequestContentResume(_ adsManager: IMAAdsManager!) {
+              // Resume content
+          }
+      }
+  
+  custom_targeting:
+    description: "Advanced targeting configuration"
+    code: |
+      import PrebidMobile
+      import CoreLocation
+      
+      class TargetingConfiguration {
+          
+          static func configureTargeting() {
+              let targeting = Targeting.shared
+              
+              // User demographics
+              targeting.gender = .male
+              targeting.yearOfBirth = 1990
+              
+              // Location (requires permission)
+              if CLLocationManager.authorizationStatus() == .authorizedWhenInUse {
+                  if let location = CLLocationManager().location {
+                      targeting.location = location
+                      targeting.locationPrecision = 2 // decimal places
+                  }
+              }
+              
+              // User interests
+              targeting.userKeywords = "sports,finance,travel"
+              
+              // Custom user data
+              targeting.userCustomData = "premium_user"
+              
+              // Page/App content
+              targeting.appContent = AppContent()
+              targeting.appContent?.episode = 3
+              targeting.appContent?.title = "Episode Title"
+              targeting.appContent?.series = "Series Name"
+              targeting.appContent?.season = "Season 1"
+              targeting.appContent?.artist = "Artist Name"
+              targeting.appContent?.genre = "Comedy"
+              targeting.appContent?.album = "Album Name"
+              targeting.appContent?.isrc = "ISRC12345"
+              targeting.appContent?.url = "https://example.com/content"
+              targeting.appContent?.categories = ["IAB1", "IAB1-1"]
+              targeting.appContent?.productionQuality = .professional
+              targeting.appContent?.videoQuality = .prosumer
+              targeting.appContent?.context = .video
+              targeting.appContent?.contentRating = "PG-13"
+              targeting.appContent?.userRating = "4"
+              targeting.appContent?.qaMediaRating = .mature
+              targeting.appContent?.keywords = "keyword1,keyword2"
+              targeting.appContent?.livestream = false
+              targeting.appContent?.sourceRelationship = .direct
+              targeting.appContent?.length = 360
+              targeting.appContent?.language = "en"
+              targeting.appContent?.embeddable = true
+              
+              // Publisher content
+              let publisherData = PBMORTBContentData()
+              publisherData.id = "data_id"
+              publisherData.name = "data_name"
+              publisherData.segment = [
+                  PBMORTBContentSegment(id: "segment1"),
+                  PBMORTBContentSegment(id: "segment2")
+              ]
+              targeting.appContent?.data = [publisherData]
+              
+              // Access control list
+              targeting.accessControlList = "/test/acl/1"
+              
+              // GDPR
+              targeting.subjectToGDPR = true
+              targeting.gdprConsentString = "COysAe4OysAe4AcABBENBBCsAP_AAH_AAAAAGSQAgAJABUADoAH"
+              targeting.purposeConsents = "100000000000000000000000"
+              
+              // CCPA
+              targeting.subjectToCOPPA = false
+              targeting.usPrivacyString = "1YNN"
+              
+              // Custom parameters for specific ad unit
+              let adUnit = BannerAdUnit(configId: "config-id", size: CGSize(width: 320, height: 50))
+              adUnit.addContextKeyword("weather")
+              adUnit.addContextKeyword("sunny")
+              adUnit.addContextData(key: "weather", value: ["sunny", "warm"])
+              
+              // App/Site information
+              targeting.domain = "example.com"
+              targeting.storeURL = "https://apps.apple.com/app/id123456"
+              targeting.publisherName = "Example Publisher"
+              
+              // OpenRTB parameters
+              targeting.openRTBParameters = ["key": "value"]
+          }
+      }
+
+# Common patterns and best practices
+patterns:
+  initialization:
+    singleton_setup:
+      description: "Configure SDK on app launch"
+      example: |
+        func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+            // Initialize Prebid
+            Prebid.shared.prebidServerHost = .Rubicon
+            Prebid.shared.prebidServerAccountId = "account-id"
+            Prebid.shared.shareGeoLocation = true
+            Prebid.shared.logLevel = .debug
+            
+            // Configure timeouts
+            Prebid.shared.timeoutMillis = 3000
+            Prebid.shared.cacheExpireMillis = 300000
+            
+            // Set global targeting
+            Targeting.shared.subjectToGDPR = true
+            
+            return true
+        }
+  
+  error_handling:
+    result_codes:
+      description: "Handle demand fetch results"
+      example: |
+        adUnit.fetchDemand(adObject: request) { resultCode in
+            switch resultCode {
+            case .prebidDemandFetchSuccess:
+                print("Prebid demand available")
+            case .prebidDemandNoBids:
+                print("No bids received")
+            case .prebidDemandTimedOut:
+                print("Prebid timeout")
+            case .prebidInvalidAccountId:
+                print("Invalid account ID")
+            case .prebidInvalidConfigId:
+                print("Invalid config ID")
+            case .prebidInvalidSize:
+                print("Invalid ad size")
+            case .prebidNetworkError:
+                print("Network error")
+            case .prebidServerError:
+                print("Server error")
+            case .prebidUnknownError:
+                print("Unknown error")
+            @unknown default:
+                print("New error case")
+            }
+            
+            // Load ad regardless of Prebid result
+            adServerLoadAd()
+        }
+  
+  memory_management:
+    weak_references:
+      description: "Avoid retain cycles"
+      example: |
+        class BannerView: UIView {
+            weak var delegate: BannerViewDelegate?
+            
+            private var adUnit: BannerAdUnit?
+            
+            func loadAd() {
+                adUnit?.fetchDemand(adObject: request) { [weak self] resultCode in
+                    self?.handleDemandResult(resultCode)
+                }
+            }
+            
+            deinit {
+                adUnit?.stopAutoRefresh()
+            }
+        }
+  
+  testing:
+    test_mode:
+      description: "Enable test mode for development"
+      example: |
+        // Enable test mode
+        Prebid.shared.pbsDebug = true
+        
+        // Use test config IDs
+        let testBannerConfigId = "test-banner-320x50"
+        let testInterstitialConfigId = "test-interstitial"
+        let testVideoConfigId = "test-video-outstream"
+        
+        // Add test device
+        Prebid.shared.addCustomHeader(name: "X-Prebid-Test", value: "1")
+
+# Testing
+testing:
+  unit_tests:
+    frameworks:
+      - "XCTest for unit testing"
+      - "OCMock for Objective-C mocking"
+      - "Quick/Nimble for BDD testing"
+    
+    test_example: |
+      import XCTest
+      @testable import PrebidMobile
+      
+      class BannerAdUnitTests: XCTestCase {
+          
+          var adUnit: BannerAdUnit!
+          
+          override func setUp() {
+              super.setUp()
+              adUnit = BannerAdUnit(configId: "test-config", size: CGSize(width: 320, height: 50))
+          }
+          
+          func testAdUnitCreation() {
+              XCTAssertEqual(adUnit.configId, "test-config")
+              XCTAssertEqual(adUnit.adSizes.count, 1)
+              XCTAssertEqual(adUnit.adSizes.first?.width, 320)
+              XCTAssertEqual(adUnit.adSizes.first?.height, 50)
+          }
+          
+          func testMultipleSizes() {
+              adUnit.addAdditionalSize(sizes: [CGSize(width: 300, height: 250)])
+              XCTAssertEqual(adUnit.adSizes.count, 2)
+          }
+          
+          func testAutoRefresh() {
+              adUnit.setAutoRefreshMillis(30000)
+              XCTAssertEqual(adUnit.refreshInterval, 30.0)
+          }
+          
+          func testFetchDemand() {
+              let expectation = self.expectation(description: "Fetch demand")
+              let request = GAMRequest()
+              
+              adUnit.fetchDemand(adObject: request) { resultCode in
+                  XCTAssertNotNil(resultCode)
+                  expectation.fulfill()
+              }
+              
+              waitForExpectations(timeout: 5.0)
+          }
+      }
+  
+  integration_tests:
+    test_app_structure: |
+      Example/
+      ├── PrebidDemoSwift/
+      │   ├── Examples/
+      │   │   ├── GAM/
+      │   │   ├── InApp/
+      │   │   └── Rendering/
+      │   └── TestCases/
+      └── PrebidDemoObjectiveC/
+
+# Configuration
+configuration:
+  info_plist:
+    required_keys: |
+      <key>NSAppTransportSecurity</key>
+      <dict>
+          <key>NSAllowsArbitraryLoads</key>
+          <true/>
+      </dict>
+      
+      <key>NSLocationWhenInUseUsageDescription</key>
+      <string>This app uses location for ad targeting</string>
+      
+      <key>SKAdNetworkItems</key>
+      <array>
+          <dict>
+              <key>SKAdNetworkIdentifier</key>
+              <string>network-id.skadnetwork</string>
+          </dict>
+      </array>
+  
+  cocoapods:
+    podfile: |
+      platform :ios, '12.0'
+      use_frameworks!
+      
+      target 'YourApp' do
+        pod 'PrebidMobile', '~> 2.0'
+        
+        # Optional modules
+        pod 'PrebidMobile/GAMEventHandlers'
+        pod 'PrebidMobile/AdMobAdapters'
+        
+        # For rendering module
+        pod 'PrebidMobile/PrebidRendering'
+      end
+  
+  spm:
+    package: |
+      dependencies: [
+          .package(
+              url: "https://github.com/prebid/prebid-mobile-ios",
+              .upToNextMajor(from: "2.0.0")
+          )
+      ]
+
+# Performance optimization
+performance:
+  caching:
+    implementation: |
+      // Configure cache settings
+      Prebid.shared.cacheExpireMillis = 300000 // 5 minutes
+      
+      // Use cached bids
+      Prebid.shared.useCacheForReportingWithRenderingAPI = true
+  
+  prefetching:
+    example: |
+      class AdPrefetchManager {
+          private var prefetchedAds = [String: GAMRequest]()
+          
+          func prefetchAd(for adUnit: AdUnit, completion: @escaping () -> Void) {
+              let request = GAMRequest()
+              
+              adUnit.fetchDemand(adObject: request) { [weak self] _ in
+                  self?.prefetchedAds[adUnit.configId] = request
+                  completion()
+              }
+          }
+          
+          func getPrefetchedRequest(for configId: String) -> GAMRequest? {
+              return prefetchedAds.removeValue(forKey: configId)
+          }
+      }
+  
+  batch_requests:
+    description: "Batch multiple ad requests"
+    example: |
+      let batchRequest = PrebidBatchRequest()
+      batchRequest.addAdUnit(bannerAdUnit)
+      batchRequest.addAdUnit(interstitialAdUnit)
+      batchRequest.addAdUnit(nativeAdUnit)
+      
+      batchRequest.fetchDemand { results in
+          results.forEach { configId, resultCode in
+              print("Config \(configId): \(resultCode)")
+          }
+      }
+
+# Common issues and solutions
+troubleshooting:
+  common_errors:
+    no_bids:
+      issue: "Consistently receiving no bids"
+      solutions:
+        - "Verify config ID is correct"
+        - "Check network connectivity"
+        - "Enable debug mode to see request/response"
+        - "Verify ad sizes are supported"
+      debugging: |
+        Prebid.shared.logLevel = .debug
+        Prebid.shared.pbsDebug = true
+    
+    integration_issues:
+      issue: "GAM not showing Prebid ads"
+      solutions:
+        - "Ensure GAMUtils.shared.findPrebidCreativeSize is called"
+        - "Check creative is properly tagged in GAM"
+        - "Verify Prebid Mobile creative is trafficked"
+      example: |
+        func bannerViewDidReceiveAd(_ bannerView: GADBannerView) {
+            GAMUtils.shared.findPrebidCreativeSize(bannerView) { size in
+                guard let size = size else {
+                    print("Not a Prebid creative")
+                    return
+                }
+                bannerView.resize(size)
+            }
+        }
+    
+    memory_leaks:
+      issue: "Memory leaks with ad units"
+      solution: "Properly cleanup ad units"
+      example: |
+        deinit {
+            adUnit?.stopAutoRefresh()
+            adUnit = nil
+        }

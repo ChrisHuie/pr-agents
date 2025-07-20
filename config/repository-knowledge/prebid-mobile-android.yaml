@@ -1,0 +1,1019 @@
+repository: prebid/prebid-mobile-android
+type: prebid-mobile-android
+description: Prebid Mobile SDK for Android - header bidding for mobile apps
+version: 2.x
+primary_language: Java/Kotlin
+ecosystem: Mobile/Android
+
+# Repository overview
+overview:
+  purpose: "Enable header bidding in Android mobile applications"
+  key_features:
+    - "In-app header bidding for Android apps"
+    - "Google Ad Manager (GAM) integration"
+    - "AdMob adapter support"
+    - "Banner, interstitial, video, native, and rewarded ads"
+    - "MRAID 3.0 compliance"
+    - "Open Measurement SDK integration"
+    - "Privacy compliance (GDPR, CCPA, COPPA)"
+    - "Server-side configuration"
+  
+  architecture:
+    core_components:
+      - prebid_core: "Core bidding engine and configuration"
+      - rendering: "Ad rendering module with MRAID support"
+      - demand_adapters: "Ad server integration adapters"
+      - event_handlers: "GAM and AdMob event handling"
+      - utils: "Utility classes and helpers"
+    
+    build_system:
+      - "Gradle build system"
+      - "Maven Central distribution"
+      - "AAR packaging"
+      - "ProGuard/R8 support"
+
+# Directory structure
+directory_structure:
+  PrebidMobile:
+    description: "Main SDK modules"
+    structure:
+      PrebidMobile-core:
+        src/main/java/org/prebid/mobile:
+          - "PrebidMobile.java": "SDK initialization"
+          - "AdUnit.java": "Base ad unit class"
+          - "BannerAdUnit.java": "Banner implementation"
+          - "InterstitialAdUnit.java": "Interstitial implementation"
+          - "VideoAdUnit.java": "Video ad implementation"
+          - "NativeAdUnit.java": "Native ad implementation"
+          - "TargetingParams.java": "User targeting"
+          - "BidManager.java": "Bid request management"
+      
+      PrebidMobile-gamEventHandlers:
+        description: "Google Ad Manager integration"
+        src/main/java/org/prebid/mobile/eventhandlers:
+          - "GamBannerEventHandler.java": "GAM banner handling"
+          - "GamInterstitialEventHandler.java": "GAM interstitial"
+          - "GamRewardedEventHandler.java": "GAM rewarded"
+          - "GamUtils.java": "GAM utilities"
+      
+      PrebidMobile-admobAdapters:
+        description: "AdMob mediation adapters"
+        src/main/java/org/prebid/mobile/admob:
+          - "PrebidBannerAdapter.java": "Banner adapter"
+          - "PrebidInterstitialAdapter.java": "Interstitial adapter"
+          - "PrebidNativeAdapter.java": "Native adapter"
+          - "AdMobUtils.java": "AdMob utilities"
+      
+      PrebidMobile-rendering:
+        description: "Rendering module"
+        src/main/java/org/prebid/mobile/rendering:
+          - "views/": "Ad view implementations"
+          - "mraid/": "MRAID implementation"
+          - "video/": "Video player components"
+          - "measurement/": "Open Measurement SDK"
+  
+  Example:
+    description: "Demo applications"
+    structure:
+      - "PrebidDemoJava/": "Java demo app"
+      - "PrebidDemoKotlin/": "Kotlin demo app"
+      - "PrebidInternalTestApp/": "Internal testing app"
+
+# Code examples with full context
+code_examples:
+  basic_banner_integration:
+    description: "Basic banner ad implementation"
+    code: |
+      // Java
+      import org.prebid.mobile.*;
+      import com.google.android.gms.ads.admanager.*;
+      
+      public class BannerActivity extends AppCompatActivity {
+          private BannerAdUnit adUnit;
+          private AdManagerAdView gamBanner;
+          
+          @Override
+          protected void onCreate(Bundle savedInstanceState) {
+              super.onCreate(savedInstanceState);
+              setContentView(R.layout.activity_banner);
+              
+              // Initialize Prebid Mobile
+              PrebidMobile.setPrebidServerHost(Host.RUBICON);
+              PrebidMobile.setPrebidServerAccountId("account-id");
+              PrebidMobile.setShareGeoLocation(true);
+              PrebidMobile.setApplicationContext(getApplicationContext());
+              
+              // Set global targeting
+              TargetingParams.setSubjectToGDPR(true);
+              TargetingParams.setGDPRConsentString("consent_string");
+              
+              // Create banner ad unit
+              adUnit = new BannerAdUnit("config-id", 320, 50);
+              
+              // Optional: Set refresh interval
+              adUnit.setAutoRefreshPeriodMillis(30000);
+              
+              // Setup GAM banner
+              gamBanner = findViewById(R.id.gamBanner);
+              gamBanner.setAdUnitId("/your/gam/ad/unit/id");
+              gamBanner.setAdListener(new AdListener() {
+                  @Override
+                  public void onAdLoaded() {
+                      super.onAdLoaded();
+                      Log.d("BannerActivity", "Ad loaded successfully");
+                      
+                      // Resize if Prebid wins
+                      AdViewUtils.findPrebidCreativeSize(gamBanner, new AdViewUtils.PbFindSizeListener() {
+                          @Override
+                          public void success(int width, int height) {
+                              gamBanner.setAdSizes(new AdSize(width, height));
+                          }
+                          
+                          @Override
+                          public void failure(PbFindSizeError error) {
+                              Log.d("BannerActivity", "Not a Prebid creative");
+                          }
+                      });
+                  }
+                  
+                  @Override
+                  public void onAdFailedToLoad(LoadAdError loadAdError) {
+                      super.onAdFailedToLoad(loadAdError);
+                      Log.e("BannerActivity", "Ad failed to load: " + loadAdError.getMessage());
+                  }
+              });
+              
+              // Load ad
+              loadBanner();
+          }
+          
+          private void loadBanner() {
+              // Create GAM request
+              final AdManagerAdRequest.Builder builder = new AdManagerAdRequest.Builder();
+              
+              // Fetch demand from Prebid
+              adUnit.fetchDemand(builder, new OnCompleteListener() {
+                  @Override
+                  public void onComplete(ResultCode resultCode) {
+                      Log.d("BannerActivity", "Prebid demand fetch result: " + resultCode.name());
+                      
+                      // Build final request
+                      AdManagerAdRequest request = builder.build();
+                      
+                      // Load GAM ad with Prebid targeting
+                      gamBanner.loadAd(request);
+                  }
+              });
+          }
+          
+          @Override
+          protected void onDestroy() {
+              super.onDestroy();
+              if (adUnit != null) {
+                  adUnit.stopAutoRefresh();
+              }
+              if (gamBanner != null) {
+                  gamBanner.destroy();
+              }
+          }
+      }
+  
+  kotlin_interstitial:
+    description: "Kotlin interstitial implementation"
+    code: |
+      import org.prebid.mobile.*
+      import com.google.android.gms.ads.admanager.*
+      
+      class InterstitialActivity : AppCompatActivity() {
+          
+          private lateinit var adUnit: InterstitialAdUnit
+          private var gamInterstitial: AdManagerInterstitialAd? = null
+          
+          override fun onCreate(savedInstanceState: Bundle?) {
+              super.onCreate(savedInstanceState)
+              setContentView(R.layout.activity_interstitial)
+              
+              // Create interstitial ad unit
+              adUnit = InterstitialAdUnit("interstitial-config-id")
+              
+              // Optional: Set minimum size percentage
+              adUnit.setMinSizePercentage(50, 70)
+              
+              // Load button
+              findViewById<Button>(R.id.loadButton).setOnClickListener {
+                  loadInterstitial()
+              }
+              
+              // Show button
+              findViewById<Button>(R.id.showButton).setOnClickListener {
+                  showInterstitial()
+              }
+          }
+          
+          private fun loadInterstitial() {
+              val request = AdManagerAdRequest.Builder()
+              
+              // Fetch Prebid demand
+              adUnit.fetchDemand(request) { resultCode ->
+                  Log.d("InterstitialActivity", "Prebid result: ${resultCode.name}")
+                  
+                  // Load GAM interstitial
+                  AdManagerInterstitialAd.load(
+                      this,
+                      "/your/gam/interstitial/id",
+                      request.build(),
+                      object : AdManagerInterstitialAdLoadCallback() {
+                          override fun onAdLoaded(ad: AdManagerInterstitialAd) {
+                              gamInterstitial = ad
+                              Log.d("InterstitialActivity", "Interstitial loaded")
+                              
+                              // Set full screen content callback
+                              ad.fullScreenContentCallback = object : FullScreenContentCallback() {
+                                  override fun onAdDismissedFullScreenContent() {
+                                      Log.d("InterstitialActivity", "Ad dismissed")
+                                      // Load next ad
+                                      loadInterstitial()
+                                  }
+                                  
+                                  override fun onAdFailedToShowFullScreenContent(error: AdError) {
+                                      Log.e("InterstitialActivity", "Failed to show: ${error.message}")
+                                  }
+                                  
+                                  override fun onAdShowedFullScreenContent() {
+                                      Log.d("InterstitialActivity", "Ad showed")
+                                      gamInterstitial = null
+                                  }
+                              }
+                          }
+                          
+                          override fun onAdFailedToLoad(error: LoadAdError) {
+                              Log.e("InterstitialActivity", "Failed to load: ${error.message}")
+                              gamInterstitial = null
+                          }
+                      }
+                  )
+              }
+          }
+          
+          private fun showInterstitial() {
+              gamInterstitial?.show(this) ?: run {
+                  Toast.makeText(this, "Interstitial not ready", Toast.LENGTH_SHORT).show()
+              }
+          }
+      }
+  
+  native_ad_implementation:
+    description: "Native ad with custom rendering"
+    code: |
+      import org.prebid.mobile.*;
+      import org.prebid.mobile.NativeEventTracker.*;
+      import com.google.android.gms.ads.nativead.*;
+      import com.google.android.gms.ads.admanager.*;
+      
+      public class NativeAdActivity extends AppCompatActivity {
+          
+          private NativeAdUnit nativeAdUnit;
+          private AdLoader adLoader;
+          private NativeAd nativeAd;
+          private NativeAdView nativeAdView;
+          
+          @Override
+          protected void onCreate(Bundle savedInstanceState) {
+              super.onCreate(savedInstanceState);
+              setContentView(R.layout.activity_native);
+              
+              setupNativeAd();
+              loadNativeAd();
+          }
+          
+          private void setupNativeAd() {
+              // Create native ad unit
+              nativeAdUnit = new NativeAdUnit("native-config-id");
+              
+              // Configure native assets
+              
+              // Title
+              NativeTitleAsset titleAsset = new NativeTitleAsset();
+              titleAsset.setLength(90);
+              titleAsset.setRequired(true);
+              nativeAdUnit.addAsset(titleAsset);
+              
+              // Icon
+              NativeImageAsset iconAsset = new NativeImageAsset();
+              iconAsset.setImageType(NativeImageAsset.IMAGE_TYPE.ICON);
+              iconAsset.setWMin(50);
+              iconAsset.setHMin(50);
+              iconAsset.setRequired(true);
+              nativeAdUnit.addAsset(iconAsset);
+              
+              // Main image
+              NativeImageAsset mainImageAsset = new NativeImageAsset();
+              mainImageAsset.setImageType(NativeImageAsset.IMAGE_TYPE.MAIN);
+              mainImageAsset.setWMin(200);
+              mainImageAsset.setHMin(150);
+              mainImageAsset.setRequired(true);
+              nativeAdUnit.addAsset(mainImageAsset);
+              
+              // Description
+              NativeDataAsset descriptionAsset = new NativeDataAsset();
+              descriptionAsset.setDataType(NativeDataAsset.DATA_TYPE.DESC);
+              descriptionAsset.setLen(150);
+              descriptionAsset.setRequired(true);
+              nativeAdUnit.addAsset(descriptionAsset);
+              
+              // CTA
+              NativeDataAsset ctaAsset = new NativeDataAsset();
+              ctaAsset.setDataType(NativeDataAsset.DATA_TYPE.CTATEXT);
+              ctaAsset.setLen(20);
+              ctaAsset.setRequired(true);
+              nativeAdUnit.addAsset(ctaAsset);
+              
+              // Sponsored
+              NativeDataAsset sponsoredAsset = new NativeDataAsset();
+              sponsoredAsset.setDataType(NativeDataAsset.DATA_TYPE.SPONSORED);
+              sponsoredAsset.setLen(25);
+              sponsoredAsset.setRequired(false);
+              nativeAdUnit.addAsset(sponsoredAsset);
+              
+              // Event trackers
+              EventType eventType = EventType.IMPRESSION;
+              ArrayList<EventTrackingMethod> methods = new ArrayList<>();
+              methods.add(EventTrackingMethod.IMAGE);
+              methods.add(EventTrackingMethod.JS);
+              NativeEventTracker tracker = new NativeEventTracker(eventType, methods);
+              nativeAdUnit.addEventTracker(tracker);
+              
+              // Context
+              nativeAdUnit.setContextType(NativeAdUnit.CONTEXT_TYPE.SOCIAL_CENTRIC);
+              nativeAdUnit.setPlacementType(NativeAdUnit.PLACEMENTTYPE.CONTENT_FEED);
+              nativeAdUnit.setContextSubType(NativeAdUnit.CONTEXTSUBTYPE.SOCIAL);
+          }
+          
+          private void loadNativeAd() {
+              // Setup native ad view
+              nativeAdView = findViewById(R.id.nativeAdView);
+              
+              // Create ad loader
+              adLoader = new AdLoader.Builder(this, "/your/gam/native/id")
+                      .forNativeAd(new NativeAd.OnNativeAdLoadedListener() {
+                          @Override
+                          public void onNativeAdLoaded(NativeAd ad) {
+                              // Destroy previous ad
+                              if (nativeAd != null) {
+                                  nativeAd.destroy();
+                              }
+                              
+                              nativeAd = ad;
+                              populateNativeAdView(ad, nativeAdView);
+                          }
+                      })
+                      .withAdListener(new AdListener() {
+                          @Override
+                          public void onAdFailedToLoad(LoadAdError loadAdError) {
+                              Log.e("NativeAd", "Failed to load: " + loadAdError.getMessage());
+                          }
+                      })
+                      .withNativeAdOptions(new NativeAdOptions.Builder()
+                              .setRequestCustomMuteThisAd(true)
+                              .build())
+                      .build();
+              
+              // Create request
+              AdManagerAdRequest.Builder requestBuilder = new AdManagerAdRequest.Builder();
+              
+              // Setup Prebid native request
+              NativeAdUnit.fetchDemand(nativeAdUnit, requestBuilder, new OnCompleteListener() {
+                  @Override
+                  public void onComplete(ResultCode resultCode) {
+                      Log.d("NativeAd", "Prebid result: " + resultCode.name());
+                      
+                      // Load ad with Prebid parameters
+                      adLoader.loadAd(requestBuilder.build());
+                  }
+              });
+          }
+          
+          private void populateNativeAdView(NativeAd nativeAd, NativeAdView adView) {
+              // Set native ad
+              adView.setNativeAd(nativeAd);
+              
+              // Populate views
+              TextView headlineView = adView.findViewById(R.id.ad_headline);
+              headlineView.setText(nativeAd.getHeadline());
+              adView.setHeadlineView(headlineView);
+              
+              TextView bodyView = adView.findViewById(R.id.ad_body);
+              bodyView.setText(nativeAd.getBody());
+              adView.setBodyView(bodyView);
+              
+              Button callToActionView = adView.findViewById(R.id.ad_call_to_action);
+              callToActionView.setText(nativeAd.getCallToAction());
+              adView.setCallToActionView(callToActionView);
+              
+              ImageView iconView = adView.findViewById(R.id.ad_app_icon);
+              if (nativeAd.getIcon() != null) {
+                  iconView.setImageDrawable(nativeAd.getIcon().getDrawable());
+                  adView.setIconView(iconView);
+              }
+              
+              TextView priceView = adView.findViewById(R.id.ad_price);
+              if (nativeAd.getPrice() != null) {
+                  priceView.setText(nativeAd.getPrice());
+                  adView.setPriceView(priceView);
+              }
+              
+              TextView storeView = adView.findViewById(R.id.ad_store);
+              if (nativeAd.getStore() != null) {
+                  storeView.setText(nativeAd.getStore());
+                  adView.setStoreView(storeView);
+              }
+              
+              RatingBar starRatingView = adView.findViewById(R.id.ad_stars);
+              if (nativeAd.getStarRating() != null) {
+                  starRatingView.setRating(nativeAd.getStarRating().floatValue());
+                  adView.setStarRatingView(starRatingView);
+              }
+              
+              TextView advertiserView = adView.findViewById(R.id.ad_advertiser);
+              if (nativeAd.getAdvertiser() != null) {
+                  advertiserView.setText(nativeAd.getAdvertiser());
+                  adView.setAdvertiserView(advertiserView);
+              }
+              
+              MediaView mediaView = adView.findViewById(R.id.ad_media);
+              adView.setMediaView(mediaView);
+          }
+          
+          @Override
+          protected void onDestroy() {
+              if (nativeAd != null) {
+                  nativeAd.destroy();
+              }
+              super.onDestroy();
+          }
+      }
+  
+  video_outstream:
+    description: "Outstream video implementation"
+    code: |
+      import org.prebid.mobile.*;
+      import org.prebid.mobile.rendering.bidding.display.*;
+      import org.prebid.mobile.rendering.bidding.listeners.*;
+      
+      public class VideoActivity extends AppCompatActivity {
+          
+          private VideoView videoView;
+          
+          @Override
+          protected void onCreate(Bundle savedInstanceState) {
+              super.onCreate(savedInstanceState);
+              setContentView(R.layout.activity_video);
+              
+              // Create video view
+              videoView = new VideoView(this);
+              videoView.setVideoViewListener(new VideoViewListener() {
+                  @Override
+                  public void onLoaded(VideoView videoView) {
+                      Log.d("Video", "Video loaded");
+                  }
+                  
+                  @Override
+                  public void onLoadFailed(VideoView videoView, AdException error) {
+                      Log.e("Video", "Load failed: " + error.getMessage());
+                  }
+                  
+                  @Override
+                  public void onDisplayed(VideoView videoView) {
+                      Log.d("Video", "Video displayed");
+                  }
+                  
+                  @Override
+                  public void onPlaybackCompleted(VideoView videoView) {
+                      Log.d("Video", "Playback completed");
+                  }
+                  
+                  @Override
+                  public void onClickThroughOpened(VideoView videoView) {
+                      Log.d("Video", "Click through opened");
+                  }
+                  
+                  @Override
+                  public void onClickThroughClosed(VideoView videoView) {
+                      Log.d("Video", "Click through closed");
+                  }
+              });
+              
+              // Configure video parameters
+              VideoParameters parameters = new VideoParameters();
+              parameters.setPlacement(VideoParameters.Placement.InBanner);
+              parameters.setApi(Arrays.asList(
+                  VideoParameters.API.VPAID_1,
+                  VideoParameters.API.VPAID_2
+              ));
+              parameters.setMaxDuration(30);
+              parameters.setMinDuration(5);
+              parameters.setProtocols(Arrays.asList(
+                  VideoParameters.Protocols.VAST_2_0,
+                  VideoParameters.Protocols.VAST_3_0
+              ));
+              parameters.setPlaybackMethod(Arrays.asList(
+                  VideoParameters.PlaybackMethod.AutoPlaySoundOff
+              ));
+              
+              // Create ad unit configuration
+              AdUnitConfiguration adUnitConfig = new AdUnitConfiguration();
+              adUnitConfig.setConfigId("video-config-id");
+              adUnitConfig.setAdFormat(AdFormat.VIDEO);
+              adUnitConfig.setVideoParameters(parameters);
+              
+              // Add to container
+              ViewGroup container = findViewById(R.id.videoContainer);
+              container.addView(videoView);
+              
+              // Load video
+              videoView.loadAd(adUnitConfig);
+          }
+          
+          @Override
+          protected void onDestroy() {
+              super.onDestroy();
+              if (videoView != null) {
+                  videoView.destroy();
+              }
+          }
+      }
+  
+  custom_targeting:
+    description: "Advanced targeting setup"
+    code: |
+      import org.prebid.mobile.*;
+      import android.location.Location;
+      
+      public class TargetingSetup {
+          
+          public static void configureTargeting(Context context) {
+              // User attributes
+              TargetingParams.setGender(TargetingParams.GENDER.MALE);
+              TargetingParams.setYearOfBirth(1990);
+              
+              // Location (requires permission)
+              if (ContextCompat.checkSelfPermission(context, 
+                      Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+                  LocationManager locationManager = (LocationManager) context.getSystemService(Context.LOCATION_SERVICE);
+                  Location location = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
+                  if (location != null) {
+                      TargetingParams.setUserLatLng(location.getLatitude(), location.getLongitude());
+                      TargetingParams.setLocationPrecision(2);
+                      TargetingParams.setLocationAge(0);
+                  }
+              }
+              
+              // User data
+              TargetingParams.setUserId("user123");
+              TargetingParams.addUserKeyword("sports");
+              TargetingParams.addUserKeyword("travel");
+              TargetingParams.setUserCustomData("premium_subscriber");
+              
+              // Content data
+              ContentObject contentObject = new ContentObject();
+              contentObject.setUrl("https://example.com/content");
+              contentObject.setId("content123");
+              contentObject.setEpisode(3);
+              contentObject.setTitle("Episode Title");
+              contentObject.setSeries("Series Name");
+              contentObject.setSeason("Season 1");
+              contentObject.setArtist("Artist Name");
+              contentObject.setGenre("Comedy");
+              contentObject.setAlbum("Album");
+              contentObject.setIsrc("ISRC123");
+              contentObject.addCategory("IAB1");
+              contentObject.addCategory("IAB1-1");
+              contentObject.setProductionQuality(ContentObject.ProductionQuality.PROFESSIONAL);
+              contentObject.setContext(ContentObject.Context.VIDEO);
+              contentObject.setContentRating("PG-13");
+              contentObject.setUserRating("4");
+              contentObject.setQaMediaRating(ContentObject.QAMediaRating.MATURE);
+              contentObject.setKeywords("keyword1,keyword2");
+              contentObject.setLiveStream(0);
+              contentObject.setSourceRelationship(0);
+              contentObject.setLength(360);
+              contentObject.setLanguage("en");
+              
+              DataObject dataObject = new DataObject();
+              dataObject.setId("data1");
+              dataObject.setName("data_name");
+              Segment segment = new Segment();
+              segment.setId("segment1");
+              segment.setName("segment_name");
+              segment.setValue("segment_value");
+              dataObject.addSegment(segment);
+              contentObject.addDataObject(dataObject);
+              
+              TargetingParams.setAppContent(contentObject);
+              
+              // Publisher data
+              TargetingParams.setDomain("example.com");
+              TargetingParams.setStoreUrl("https://play.google.com/store/apps/details?id=com.example");
+              TargetingParams.setPublisherName("Example Publisher");
+              
+              // Privacy
+              TargetingParams.setSubjectToGDPR(true);
+              TargetingParams.setGDPRConsentString("COysAe4OysAe4AcABBENBBCsAP_AAH_AAAAAGSQAgAJABUADoAH");
+              TargetingParams.setPurposeConsents("100000000000000000000000");
+              
+              // CCPA
+              TargetingParams.setSubjectToCOPPA(false);
+              TargetingParams.setUSPrivacyString("1YNN");
+              
+              // Access control
+              TargetingParams.addAccessControlList("/test/acl/1");
+              
+              // External user IDs
+              ExternalUserId parrableId = new ExternalUserId("parrable.com", "01.1563917337.test-eid");
+              parrableId.setAtype(1);
+              TargetingParams.storeExternalUserId(parrableId);
+              
+              // Contextual data
+              TargetingParams.addContextData("weather", "sunny");
+              TargetingParams.addContextKeyword("weather");
+              TargetingParams.addContextKeyword("news");
+              
+              // OMID partner
+              TargetingParams.setOmidPartnerName("Example");
+              TargetingParams.setOmidPartnerVersion("1.0");
+              
+              // Custom parameters
+              TargetingParams.addCustomTargeting("key1", "value1");
+              TargetingParams.addCustomTargeting("key2", "value2");
+          }
+      }
+
+# Common patterns and best practices
+patterns:
+  initialization:
+    application_class:
+      description: "Initialize in Application class"
+      example: |
+        public class MyApplication extends Application {
+            @Override
+            public void onCreate() {
+                super.onCreate();
+                
+                // Initialize Prebid
+                PrebidMobile.setPrebidServerHost(Host.RUBICON);
+                PrebidMobile.setPrebidServerAccountId("account-id");
+                PrebidMobile.setApplicationContext(getApplicationContext());
+                PrebidMobile.setShareGeoLocation(true);
+                
+                // Set timeouts
+                PrebidMobile.setTimeoutMillis(3000);
+                PrebidMobile.setCacheExpireMillis(300000);
+                
+                // Enable debug
+                if (BuildConfig.DEBUG) {
+                    PrebidMobile.setLogLevel(PrebidMobile.LogLevel.DEBUG);
+                    PrebidMobile.setPbsDebug(true);
+                }
+                
+                // Initialize Open Measurement
+                PrebidMobile.initializeOmSdk();
+            }
+        }
+  
+  lifecycle_management:
+    activity_lifecycle:
+      description: "Proper cleanup in lifecycle"
+      example: |
+        public class AdActivity extends AppCompatActivity {
+            private BannerAdUnit bannerAdUnit;
+            private AdManagerAdView adView;
+            
+            @Override
+            protected void onResume() {
+                super.onResume();
+                if (adView != null) {
+                    adView.resume();
+                }
+                if (bannerAdUnit != null) {
+                    bannerAdUnit.resumeAutoRefresh();
+                }
+            }
+            
+            @Override
+            protected void onPause() {
+                if (adView != null) {
+                    adView.pause();
+                }
+                if (bannerAdUnit != null) {
+                    bannerAdUnit.stopAutoRefresh();
+                }
+                super.onPause();
+            }
+            
+            @Override
+            protected void onDestroy() {
+                if (adView != null) {
+                    adView.destroy();
+                }
+                if (bannerAdUnit != null) {
+                    bannerAdUnit.stopAutoRefresh();
+                }
+                super.onDestroy();
+            }
+        }
+  
+  error_handling:
+    result_codes:
+      description: "Handle all result codes"
+      example: |
+        adUnit.fetchDemand(request, new OnCompleteListener() {
+            @Override
+            public void onComplete(ResultCode resultCode) {
+                switch (resultCode) {
+                    case SUCCESS:
+                        Log.d(TAG, "Prebid demand fetched successfully");
+                        break;
+                    case NO_BIDS:
+                        Log.d(TAG, "No bids received");
+                        break;
+                    case TIMEOUT:
+                        Log.w(TAG, "Prebid timeout");
+                        break;
+                    case INVALID_ACCOUNT_ID:
+                        Log.e(TAG, "Invalid account ID");
+                        break;
+                    case INVALID_CONFIG_ID:
+                        Log.e(TAG, "Invalid config ID");
+                        break;
+                    case INVALID_SIZE:
+                        Log.e(TAG, "Invalid ad size");
+                        break;
+                    case NETWORK_ERROR:
+                        Log.e(TAG, "Network error");
+                        break;
+                    case SERVER_ERROR:
+                        Log.e(TAG, "Server error");
+                        break;
+                    case PREBID_SERVER_UNKNOWN_ERROR:
+                        Log.e(TAG, "Unknown error");
+                        break;
+                }
+                
+                // Always attempt to load ad
+                loadAd(request);
+            }
+        });
+  
+  memory_optimization:
+    weak_references:
+      description: "Use weak references to avoid leaks"
+      example: |
+        public class BannerLoader {
+            private final WeakReference<Activity> activityRef;
+            private BannerAdUnit adUnit;
+            
+            public BannerLoader(Activity activity) {
+                this.activityRef = new WeakReference<>(activity);
+            }
+            
+            public void loadBanner() {
+                final Activity activity = activityRef.get();
+                if (activity == null || activity.isFinishing()) {
+                    return;
+                }
+                
+                AdManagerAdRequest.Builder builder = new AdManagerAdRequest.Builder();
+                adUnit.fetchDemand(builder, resultCode -> {
+                    Activity currentActivity = activityRef.get();
+                    if (currentActivity != null && !currentActivity.isFinishing()) {
+                        // Safe to proceed
+                        loadAdInActivity(currentActivity, builder.build());
+                    }
+                });
+            }
+        }
+
+# Testing
+testing:
+  unit_tests:
+    frameworks:
+      - "JUnit 4 for unit testing"
+      - "Mockito for mocking"
+      - "Robolectric for Android framework"
+      - "Espresso for UI testing"
+    
+    test_example: |
+      @RunWith(RobolectricTestRunner.class)
+      @Config(sdk = Build.VERSION_CODES.P)
+      public class BannerAdUnitTest {
+          
+          @Mock
+          private OnCompleteListener mockListener;
+          
+          @Mock
+          private AdManagerAdRequest.Builder mockBuilder;
+          
+          private BannerAdUnit bannerAdUnit;
+          
+          @Before
+          public void setup() {
+              MockitoAnnotations.initMocks(this);
+              PrebidMobile.setApplicationContext(ApplicationProvider.getApplicationContext());
+              bannerAdUnit = new BannerAdUnit("test-config", 320, 50);
+          }
+          
+          @Test
+          public void testAdUnitCreation() {
+              assertEquals("test-config", bannerAdUnit.getConfigId());
+              assertEquals(1, bannerAdUnit.getSizes().size());
+              AdSize size = bannerAdUnit.getSizes().iterator().next();
+              assertEquals(320, size.getWidth());
+              assertEquals(50, size.getHeight());
+          }
+          
+          @Test
+          public void testMultipleSizes() {
+              bannerAdUnit.addAdditionalSize(300, 250);
+              assertEquals(2, bannerAdUnit.getSizes().size());
+          }
+          
+          @Test
+          public void testAutoRefresh() {
+              bannerAdUnit.setAutoRefreshPeriodMillis(30000);
+              assertEquals(30000, bannerAdUnit.getAutoRefreshPeriodMillis());
+          }
+          
+          @Test
+          public void testFetchDemand() {
+              bannerAdUnit.fetchDemand(mockBuilder, mockListener);
+              
+              // Verify listener is called
+              verify(mockListener, timeout(5000)).onComplete(any(ResultCode.class));
+          }
+      }
+  
+  integration_tests:
+    test_structure: |
+      Example/PrebidDemoJava/src/androidTest/java/
+      └── org/prebid/mobile/demo/
+          ├── BannerIntegrationTest.java
+          ├── InterstitialIntegrationTest.java
+          ├── NativeIntegrationTest.java
+          └── VideoIntegrationTest.java
+
+# Configuration
+configuration:
+  manifest_permissions:
+    required: |
+      <uses-permission android:name="android.permission.INTERNET" />
+      <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    
+    optional: |
+      <!-- For location targeting -->
+      <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+      <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+      
+      <!-- For MRAID -->
+      <uses-permission android:name="android.permission.WRITE_CALENDAR" />
+      <uses-permission android:name="android.permission.READ_CALENDAR" />
+  
+  gradle_setup:
+    dependencies: |
+      dependencies {
+          // Prebid SDK
+          implementation 'org.prebid:prebid-mobile-sdk:2.0.0'
+          
+          // For GAM integration
+          implementation 'org.prebid:prebid-mobile-sdk-gam-event-handlers:2.0.0'
+          implementation 'com.google.android.gms:play-services-ads:21.0.0'
+          
+          // For AdMob adapters
+          implementation 'org.prebid:prebid-mobile-sdk-admob-adapters:2.0.0'
+          
+          // For rendering module
+          implementation 'org.prebid:prebid-mobile-sdk-rendering:2.0.0'
+      }
+    
+    repositories: |
+      repositories {
+          mavenCentral()
+          google()
+      }
+  
+  proguard_rules: |
+    # Prebid
+    -keep class org.prebid.** { *; }
+    -keep class com.mopub.mobileads.** { *; }
+    -dontwarn org.prebid.**
+    
+    # OMSDK
+    -keep class com.iabtcf.** { *; }
+    -keep class com.iab.** { *; }
+
+# Performance optimization
+performance:
+  connection_pooling:
+    okhttp_config: |
+      OkHttpClient client = new OkHttpClient.Builder()
+              .connectTimeout(10, TimeUnit.SECONDS)
+              .readTimeout(10, TimeUnit.SECONDS)
+              .connectionPool(new ConnectionPool(5, 5, TimeUnit.MINUTES))
+              .build();
+      
+      PrebidMobile.setCustomHttpClient(client);
+  
+  request_batching:
+    example: |
+      // Batch multiple ad units
+      ArrayList<AdUnit> adUnits = new ArrayList<>();
+      adUnits.add(bannerAdUnit);
+      adUnits.add(interstitialAdUnit);
+      adUnits.add(nativeAdUnit);
+      
+      PrebidMobile.fetchDemand(adUnits, new OnCompleteListener2() {
+          @Override
+          public void onComplete(Map<AdUnit, ResultCode> resultMap) {
+              for (Map.Entry<AdUnit, ResultCode> entry : resultMap.entrySet()) {
+                  Log.d(TAG, "AdUnit: " + entry.getKey().getConfigId() + 
+                            " Result: " + entry.getValue());
+              }
+          }
+      });
+  
+  caching_strategy:
+    implementation: |
+      // Configure cache
+      PrebidMobile.setCacheExpireMillis(300000); // 5 minutes
+      
+      // Use cached bids
+      PrebidMobile.setUseCacheForReportingWithRenderingAPI(true);
+      
+      // Custom cache implementation
+      public class BidCache {
+          private final LruCache<String, CacheEntry> cache;
+          
+          public BidCache(int maxSize) {
+              cache = new LruCache<>(maxSize);
+          }
+          
+          public void put(String key, String bidResponse) {
+              cache.put(key, new CacheEntry(bidResponse, System.currentTimeMillis()));
+          }
+          
+          public String get(String key) {
+              CacheEntry entry = cache.get(key);
+              if (entry != null && !entry.isExpired()) {
+                  return entry.bidResponse;
+              }
+              return null;
+          }
+      }
+
+# Common issues and solutions
+troubleshooting:
+  common_errors:
+    network_security:
+      issue: "Cleartext traffic not permitted"
+      solution: "Add network security config"
+      implementation: |
+        <!-- res/xml/network_security_config.xml -->
+        <?xml version="1.0" encoding="utf-8"?>
+        <network-security-config>
+            <domain-config cleartextTrafficPermitted="true">
+                <domain includeSubdomains="true">prebid.org</domain>
+            </domain-config>
+        </network-security-config>
+        
+        <!-- AndroidManifest.xml -->
+        <application
+            android:networkSecurityConfig="@xml/network_security_config">
+    
+    multidex:
+      issue: "Method count exceeds 65K"
+      solution: "Enable multidex"
+      implementation: |
+        android {
+            defaultConfig {
+                multiDexEnabled true
+            }
+        }
+        
+        dependencies {
+            implementation 'androidx.multidex:multidex:2.0.1'
+        }
+    
+    memory_leaks:
+      issue: "Activity leaked via ad callback"
+      solution: "Clear references in onDestroy"
+      example: |
+        @Override
+        protected void onDestroy() {
+            if (adView != null) {
+                adView.setAdListener(null);
+                adView.destroy();
+            }
+            if (adUnit != null) {
+                adUnit.stopAutoRefresh();
+            }
+            super.onDestroy();
+        }

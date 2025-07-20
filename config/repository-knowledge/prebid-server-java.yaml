@@ -1,0 +1,765 @@
+repository: prebid/prebid-server-java
+type: prebid-server-java
+description: Server-side header bidding solution in Java
+version: 2.x
+primary_language: Java
+ecosystem: Server/Backend
+
+# Repository overview
+overview:
+  purpose: "Enterprise-grade server-side header bidding platform built on Vert.x"
+  key_features:
+    - "High-performance asynchronous architecture"
+    - "Reactive programming with Vert.x"
+    - "Spring Boot integration"
+    - "Comprehensive metrics with Micrometer"
+    - "Circuit breaker patterns"
+    - "Advanced caching with Caffeine"
+    - "OpenRTB 2.5/2.6 support"
+  
+  architecture:
+    core_components:
+      - auction: "Auction execution engine"
+      - bidder: "Bidder adapter framework"
+      - analytics: "Analytics and reporting"
+      - privacy: "GDPR/CCPA compliance"
+      - cache: "Response caching"
+      - metric: "Performance metrics"
+    
+    frameworks:
+      - "Vert.x for async/reactive"
+      - "Spring Boot for DI"
+      - "Jackson for JSON"
+      - "Caffeine for caching"
+      - "Micrometer for metrics"
+
+# Directory structure
+directory_structure:
+  src/main/java/org/prebid/server:
+    bidder:
+      description: "Bidder adapter implementations"
+      structure:
+        - "{bidder}/": "Package per bidder"
+        - "model/": "Bidder-specific models"
+        - "proto/": "Protocol definitions"
+    
+    auction:
+      description: "Core auction logic"
+      key_classes:
+        - "ExchangeService.java": "Main auction service"
+        - "BidderRequest.java": "Bidder request model"
+        - "BidResponse.java": "Bid response model"
+        - "AuctionContext.java": "Auction state"
+    
+    handler:
+      description: "HTTP request handlers"
+      endpoints:
+        - "OpenrtbHandler.java": "OpenRTB endpoint"
+        - "AuctionHandler.java": "Auction endpoint"
+        - "CookieSyncHandler.java": "Cookie sync"
+        - "SetuidHandler.java": "User ID setting"
+    
+    spring/config:
+      description: "Spring configuration"
+      configs:
+        - "BidderConfiguration.java": "Bidder beans"
+        - "MetricsConfiguration.java": "Metrics setup"
+        - "WebConfiguration.java": "Web layer"
+  
+  src/test:
+    structure:
+      - "java/": "Unit tests"
+      - "groovy/": "Spock specifications"
+      - "resources/": "Test fixtures"
+
+# Code examples with full context
+code_examples:
+  bidder_implementation:
+    complete_example:
+      description: "Full bidder implementation in Java"
+      code: |
+        package org.prebid.server.bidder.example;
+        
+        import com.fasterxml.jackson.core.type.TypeReference;
+        import com.fasterxml.jackson.databind.node.ObjectNode;
+        import com.iab.openrtb.request.BidRequest;
+        import com.iab.openrtb.request.Imp;
+        import com.iab.openrtb.response.Bid;
+        import com.iab.openrtb.response.BidResponse;
+        import com.iab.openrtb.response.SeatBid;
+        import io.vertx.core.MultiMap;
+        import io.vertx.core.http.HttpMethod;
+        import org.apache.commons.collections4.CollectionUtils;
+        import org.apache.commons.lang3.StringUtils;
+        import org.prebid.server.bidder.Bidder;
+        import org.prebid.server.bidder.model.BidderBid;
+        import org.prebid.server.bidder.model.BidderError;
+        import org.prebid.server.bidder.model.HttpCall;
+        import org.prebid.server.bidder.model.HttpRequest;
+        import org.prebid.server.bidder.model.Result;
+        import org.prebid.server.exception.PreBidException;
+        import org.prebid.server.json.DecodeException;
+        import org.prebid.server.json.JacksonMapper;
+        import org.prebid.server.proto.openrtb.ext.ExtPrebid;
+        import org.prebid.server.proto.openrtb.ext.request.example.ExtImpExample;
+        import org.prebid.server.proto.openrtb.ext.response.BidType;
+        import org.prebid.server.util.HttpUtil;
+        
+        import java.math.BigDecimal;
+        import java.util.ArrayList;
+        import java.util.Collection;
+        import java.util.Collections;
+        import java.util.List;
+        import java.util.Map;
+        import java.util.Objects;
+        import java.util.stream.Collectors;
+        
+        /**
+         * Example {@link Bidder} implementation.
+         */
+        public class ExampleBidder implements Bidder<BidRequest> {
+        
+            private static final TypeReference<ExtPrebid<?, ExtImpExample>> EXAMPLE_EXT_TYPE_REFERENCE =
+                    new TypeReference<>() {};
+        
+            private static final String DEFAULT_BID_CURRENCY = "USD";
+            
+            private final String endpointUrl;
+            private final JacksonMapper mapper;
+        
+            public ExampleBidder(String endpointUrl, JacksonMapper mapper) {
+                this.endpointUrl = HttpUtil.validateUrl(Objects.requireNonNull(endpointUrl));
+                this.mapper = Objects.requireNonNull(mapper);
+            }
+        
+            @Override
+            public final Result<List<HttpRequest<BidRequest>>> makeHttpRequests(BidRequest bidRequest) {
+                final List<BidderError> errors = new ArrayList<>();
+                final List<HttpRequest<BidRequest>> httpRequests = new ArrayList<>();
+                
+                for (Imp imp : bidRequest.getImp()) {
+                    try {
+                        final ExtImpExample extImpExample = parseImpExt(imp);
+                        final BidRequest modifiedRequest = modifyRequest(bidRequest, imp, extImpExample);
+                        httpRequests.add(createHttpRequest(modifiedRequest));
+                    } catch (PreBidException e) {
+                        errors.add(BidderError.badInput(e.getMessage()));
+                    }
+                }
+                
+                return Result.of(httpRequests, errors);
+            }
+        
+            private ExtImpExample parseImpExt(Imp imp) {
+                try {
+                    return mapper.mapper().convertValue(imp.getExt(), EXAMPLE_EXT_TYPE_REFERENCE).getBidder();
+                } catch (IllegalArgumentException e) {
+                    throw new PreBidException("Failed to parse imp.ext: " + e.getMessage());
+                }
+            }
+            
+            private BidRequest modifyRequest(BidRequest bidRequest, Imp imp, ExtImpExample extImpExample) {
+                // Validate required parameters
+                if (StringUtils.isBlank(extImpExample.getPlacementId())) {
+                    throw new PreBidException("placementId is required");
+                }
+                
+                // Create modified impression
+                final Imp modifiedImp = imp.toBuilder()
+                        .tagid(extImpExample.getPlacementId())
+                        .ext(null) // Remove ext to avoid sending to bidder
+                        .build();
+                
+                // Create modified request with single impression
+                return bidRequest.toBuilder()
+                        .imp(Collections.singletonList(modifiedImp))
+                        .build();
+            }
+            
+            private HttpRequest<BidRequest> createHttpRequest(BidRequest bidRequest) {
+                return HttpRequest.<BidRequest>builder()
+                        .method(HttpMethod.POST)
+                        .uri(endpointUrl)
+                        .headers(getHeaders())
+                        .payload(bidRequest)
+                        .body(mapper.encodeToBytes(bidRequest))
+                        .build();
+            }
+            
+            private static MultiMap getHeaders() {
+                return HttpUtil.headers()
+                        .add(HttpUtil.CONTENT_TYPE_HEADER, HttpUtil.APPLICATION_JSON_CONTENT_TYPE)
+                        .add(HttpUtil.ACCEPT_HEADER, HttpUtil.APPLICATION_JSON_CONTENT_TYPE)
+                        .add("X-Prebid-Server", "true");
+            }
+        
+            @Override
+            public final Result<List<BidderBid>> makeBids(HttpCall<BidRequest> httpCall, BidRequest bidRequest) {
+                try {
+                    final BidResponse bidResponse = mapper.decodeValue(httpCall.getResponse().getBody(), BidResponse.class);
+                    return Result.withValues(extractBids(httpCall.getRequest().getPayload(), bidResponse));
+                } catch (DecodeException | PreBidException e) {
+                    return Result.withError(BidderError.badServerResponse(e.getMessage()));
+                }
+            }
+            
+            private List<BidderBid> extractBids(BidRequest bidRequest, BidResponse bidResponse) {
+                if (bidResponse == null || CollectionUtils.isEmpty(bidResponse.getSeatbid())) {
+                    return Collections.emptyList();
+                }
+                
+                return bidResponse.getSeatbid().stream()
+                        .filter(Objects::nonNull)
+                        .map(SeatBid::getBid)
+                        .filter(Objects::nonNull)
+                        .flatMap(Collection::stream)
+                        .map(bid -> toBidderBid(bid, bidRequest, bidResponse.getCur()))
+                        .filter(Objects::nonNull)
+                        .collect(Collectors.toList());
+            }
+            
+            private BidderBid toBidderBid(Bid bid, BidRequest bidRequest, String currency) {
+                final BidType bidType = getBidType(bid, bidRequest);
+                return BidderBid.of(bid, bidType, currency != null ? currency : DEFAULT_BID_CURRENCY);
+            }
+            
+            private BidType getBidType(Bid bid, BidRequest bidRequest) {
+                // Try to get from bid.ext.prebid.type
+                final ObjectNode bidExt = bid.getExt();
+                if (bidExt != null) {
+                    final String mediaType = getMediaTypeFromExt(bidExt);
+                    if (mediaType != null) {
+                        return parseBidType(mediaType);
+                    }
+                }
+                
+                // Infer from impression
+                return inferBidTypeFromImp(bid, bidRequest);
+            }
+            
+            private String getMediaTypeFromExt(ObjectNode bidExt) {
+                try {
+                    return bidExt.path("prebid").path("type").asText(null);
+                } catch (Exception e) {
+                    return null;
+                }
+            }
+            
+            private BidType parseBidType(String mediaType) {
+                switch (mediaType.toLowerCase()) {
+                    case "banner":
+                        return BidType.banner;
+                    case "video":
+                        return BidType.video;
+                    case "native":
+                        return BidType.xNative;
+                    case "audio":
+                        return BidType.audio;
+                    default:
+                        throw new PreBidException("Unknown media type: " + mediaType);
+                }
+            }
+            
+            private BidType inferBidTypeFromImp(Bid bid, BidRequest bidRequest) {
+                for (Imp imp : bidRequest.getImp()) {
+                    if (imp.getId().equals(bid.getImpid())) {
+                        if (imp.getBanner() != null) {
+                            return BidType.banner;
+                        } else if (imp.getVideo() != null) {
+                            return BidType.video;
+                        } else if (imp.getXNative() != null) {
+                            return BidType.xNative;
+                        } else if (imp.getAudio() != null) {
+                            return BidType.audio;
+                        }
+                    }
+                }
+                throw new PreBidException("Failed to determine media type for bid: " + bid.getId());
+            }
+        }
+  
+  bidder_configuration:
+    description: "Spring configuration for bidder"
+    code: |
+      package org.prebid.server.spring.config.bidder;
+      
+      import org.prebid.server.bidder.BidderDeps;
+      import org.prebid.server.bidder.example.ExampleBidder;
+      import org.prebid.server.json.JacksonMapper;
+      import org.prebid.server.spring.config.bidder.model.BidderConfigurationProperties;
+      import org.prebid.server.spring.config.bidder.util.BidderDepsAssembler;
+      import org.prebid.server.spring.config.bidder.util.UsersyncerCreator;
+      import org.prebid.server.spring.env.YamlPropertySourceFactory;
+      import org.springframework.beans.factory.annotation.Value;
+      import org.springframework.boot.context.properties.ConfigurationProperties;
+      import org.springframework.context.annotation.Bean;
+      import org.springframework.context.annotation.Configuration;
+      import org.springframework.context.annotation.PropertySource;
+      
+      import javax.validation.constraints.NotBlank;
+      
+      @Configuration
+      @PropertySource(value = "classpath:/bidder-config/example.yaml", factory = YamlPropertySourceFactory.class)
+      public class ExampleConfiguration {
+      
+          private static final String BIDDER_NAME = "example";
+      
+          @Bean("exampleConfigurationProperties")
+          @ConfigurationProperties("adapters.example")
+          BidderConfigurationProperties configurationProperties() {
+              return new BidderConfigurationProperties();
+          }
+      
+          @Bean
+          BidderDeps exampleBidderDeps(BidderConfigurationProperties exampleConfigurationProperties,
+                                       @NotBlank @Value("${adapters.example.endpoint}") String endpoint,
+                                       JacksonMapper mapper) {
+      
+              return BidderDepsAssembler.forBidder(BIDDER_NAME)
+                      .withConfig(exampleConfigurationProperties)
+                      .usersyncerCreator(UsersyncerCreator.create(exampleConfigurationProperties.getUsersync(), mapper))
+                      .bidderCreator(config -> new ExampleBidder(endpoint, mapper))
+                      .assemble();
+          }
+      }
+  
+  bidder_test:
+    description: "Comprehensive bidder testing with Groovy/Spock"
+    code: |
+      package org.prebid.server.bidder.example
+      
+      import com.iab.openrtb.request.BidRequest
+      import com.iab.openrtb.request.Imp
+      import com.iab.openrtb.response.Bid
+      import com.iab.openrtb.response.BidResponse
+      import com.iab.openrtb.response.SeatBid
+      import org.prebid.server.VertxTest
+      import org.prebid.server.bidder.model.BidderBid
+      import org.prebid.server.bidder.model.BidderError
+      import org.prebid.server.bidder.model.HttpCall
+      import org.prebid.server.bidder.model.HttpRequest
+      import org.prebid.server.bidder.model.HttpResponse
+      import org.prebid.server.bidder.model.Result
+      import spock.lang.Specification
+      
+      import static org.prebid.server.proto.openrtb.ext.response.BidType.banner
+      import static org.prebid.server.proto.openrtb.ext.response.BidType.video
+      
+      @VertxTest
+      class ExampleBidderSpec extends Specification {
+      
+          private static final String ENDPOINT_URL = "https://example.com/bid"
+          
+          private ExampleBidder bidder = new ExampleBidder(ENDPOINT_URL, jacksonMapper)
+      
+          def "makeHttpRequests should create request for each impression"() {
+              given: "A bid request with multiple impressions"
+              def bidRequest = BidRequest.builder()
+                      .id("request-id")
+                      .imp([
+                              Imp.builder()
+                                      .id("imp1")
+                                      .ext(mapper.valueToTree([
+                                              bidder: [placementId: "placement1"]
+                                      ]))
+                                      .build(),
+                              Imp.builder()
+                                      .id("imp2")
+                                      .ext(mapper.valueToTree([
+                                              bidder: [placementId: "placement2"]
+                                      ]))
+                                      .build()
+                      ])
+                      .build()
+      
+              when: "Making HTTP requests"
+              def result = bidder.makeHttpRequests(bidRequest)
+      
+              then: "Should create one request per impression"
+              result.value.size() == 2
+              result.errors.isEmpty()
+              
+              and: "Each request should have correct placement ID"
+              result.value[0].payload.imp[0].tagid == "placement1"
+              result.value[1].payload.imp[0].tagid == "placement2"
+          }
+      
+          def "makeHttpRequests should handle missing placement ID"() {
+              given: "An impression without placement ID"
+              def bidRequest = BidRequest.builder()
+                      .imp([Imp.builder()
+                              .id("imp1")
+                              .ext(mapper.valueToTree([bidder: [:]]))
+                              .build()])
+                      .build()
+      
+              when: "Making HTTP requests"
+              def result = bidder.makeHttpRequests(bidRequest)
+      
+              then: "Should return error"
+              result.value.isEmpty()
+              result.errors.size() == 1
+              result.errors[0].type == BidderError.Type.bad_input
+              result.errors[0].message.contains("placementId is required")
+          }
+      
+          def "makeBids should extract bids from response"() {
+              given: "A bid response"
+              def bidResponse = BidResponse.builder()
+                      .id("response-id")
+                      .seatbid([SeatBid.builder()
+                              .bid([Bid.builder()
+                                      .id("bid1")
+                                      .impid("imp1")
+                                      .price(1.5)
+                                      .adm("<div>Ad</div>")
+                                      .w(300)
+                                      .h(250)
+                                      .build()])
+                              .build()])
+                      .cur("USD")
+                      .build()
+              
+              def httpCall = HttpCall.success(
+                      HttpRequest.builder().payload(BidRequest.builder().build()).build(),
+                      HttpResponse.of(200, null, mapper.encodeToString(bidResponse)),
+                      null
+              )
+      
+              when: "Making bids from response"
+              def result = bidder.makeBids(httpCall, BidRequest.builder()
+                      .imp([Imp.builder().id("imp1").banner(Banner.builder().build()).build()])
+                      .build())
+      
+              then: "Should extract bid correctly"
+              result.value.size() == 1
+              result.errors.isEmpty()
+              
+              def bidderBid = result.value[0]
+              bidderBid.bid.id == "bid1"
+              bidderBid.bid.price == 1.5
+              bidderBid.type == banner
+              bidderBid.bidCurrency == "USD"
+          }
+      
+          def "makeBids should handle empty response"() {
+              given: "An empty response"
+              def httpCall = HttpCall.success(
+                      HttpRequest.builder().build(),
+                      HttpResponse.of(204, null, ""),
+                      null
+              )
+      
+              when: "Making bids from empty response"
+              def result = bidder.makeBids(httpCall, BidRequest.builder().build())
+      
+              then: "Should return empty list"
+              result.value.isEmpty()
+              result.errors.isEmpty()
+          }
+      }
+  
+  ext_imp_model:
+    description: "Extension model for impression parameters"
+    code: |
+      package org.prebid.server.proto.openrtb.ext.request.example;
+      
+      import com.fasterxml.jackson.annotation.JsonProperty;
+      import lombok.Builder;
+      import lombok.Value;
+      
+      /**
+       * Defines the contract for bidrequest.imp[i].ext.prebid.bidder.example
+       */
+      @Builder
+      @Value
+      public class ExtImpExample {
+      
+          @JsonProperty("placementId")
+          String placementId;
+          
+          @JsonProperty("siteId")
+          String siteId;
+          
+          @JsonProperty("publisherId")
+          String publisherId;
+          
+          @JsonProperty("bidFloor")
+          BigDecimal bidFloor;
+      }
+  
+  metrics_integration:
+    description: "Metrics collection for bidder"
+    code: |
+      package org.prebid.server.metric;
+      
+      import com.codahale.metrics.MetricRegistry;
+      import org.prebid.server.metric.model.AccountMetricsVerbosityLevel;
+      
+      public class BidderMetrics {
+          
+          private final MetricRegistry metricRegistry;
+          private final CounterType requestCounter;
+          private final CounterType errorCounter;
+          private final CounterType timeoutCounter;
+          private final TimerType requestTimer;
+          
+          public BidderMetrics(MetricRegistry metricRegistry, String bidder) {
+              this.metricRegistry = metricRegistry;
+              this.requestCounter = new CounterType("adapter.%s.requests".formatted(bidder), metricRegistry);
+              this.errorCounter = new CounterType("adapter.%s.errors".formatted(bidder), metricRegistry);
+              this.timeoutCounter = new CounterType("adapter.%s.timeouts".formatted(bidder), metricRegistry);
+              this.requestTimer = new TimerType("adapter.%s.request_time".formatted(bidder), metricRegistry);
+          }
+          
+          public void updateRequestMetrics(boolean success, long duration) {
+              requestCounter.inc();
+              requestTimer.update(duration);
+              
+              if (!success) {
+                  errorCounter.inc();
+              }
+          }
+          
+          public void updateTimeoutMetric() {
+              timeoutCounter.inc();
+          }
+      }
+
+# Common patterns and best practices
+patterns:
+  async_programming:
+    futures:
+      description: "Use CompletableFuture for async operations"
+      example: |
+        return CompletableFuture
+                .supplyAsync(() -> makeRequest(bidRequest))
+                .thenApply(this::parseResponse)
+                .exceptionally(throwable -> handleError(throwable));
+    
+    vertx_async:
+      description: "Vertx Future for reactive programming"
+      example: |
+        return httpClient.request(HttpMethod.POST, endpointUrl)
+                .compose(request -> request
+                        .putHeader("Content-Type", "application/json")
+                        .send(Buffer.buffer(payload)))
+                .map(response -> parseBidResponse(response.bodyAsString()));
+  
+  error_handling:
+    result_pattern:
+      description: "Use Result<T> for success/error handling"
+      example: |
+        public Result<List<BidderBid>> makeBids(HttpCall<BidRequest> httpCall, BidRequest bidRequest) {
+            try {
+                final List<BidderBid> bids = extractBids(httpCall);
+                return Result.withValues(bids);
+            } catch (PreBidException e) {
+                return Result.withError(BidderError.badServerResponse(e.getMessage()));
+            }
+        }
+    
+    error_types:
+      - "BidderError.badInput() - Invalid request parameters"
+      - "BidderError.badServerResponse() - Invalid bidder response"
+      - "BidderError.timeout() - Request timeout"
+      - "BidderError.generic() - Other errors"
+  
+  immutability:
+    builder_pattern:
+      description: "Use builders for immutable objects"
+      example: |
+        final Imp modifiedImp = imp.toBuilder()
+                .tagid(placementId)
+                .ext(null)
+                .build();
+    
+    defensive_copying:
+      description: "Create copies instead of modifying"
+      example: |
+        final List<Imp> modifiedImps = new ArrayList<>(bidRequest.getImp());
+
+# Testing strategies
+testing:
+  unit_tests:
+    frameworks:
+      - "JUnit 5 for Java tests"
+      - "Spock for Groovy tests"
+      - "Mockito for mocking"
+      - "AssertJ for assertions"
+    
+    test_structure: |
+      @Test
+      void shouldCreateRequestWithCorrectHeaders() {
+          // Given
+          final BidRequest bidRequest = givenBidRequest();
+          
+          // When
+          final Result<List<HttpRequest<BidRequest>>> result = bidder.makeHttpRequests(bidRequest);
+          
+          // Then
+          assertThat(result.getErrors()).isEmpty();
+          assertThat(result.getValue()).hasSize(1);
+          
+          final HttpRequest<BidRequest> httpRequest = result.getValue().get(0);
+          assertThat(httpRequest.getHeaders())
+                  .containsEntry("Content-Type", "application/json")
+                  .containsEntry("X-Prebid-Server", "true");
+      }
+  
+  integration_tests:
+    test_fixtures: |
+      src/test/resources/org/prebid/server/it/
+      └── example/
+          ├── test-auction-example-request.json
+          ├── test-auction-example-response.json
+          └── test-example-bid-request.json
+    
+    test_pattern: |
+      @Test
+      public void openrtb2AuctionShouldRespondWithBidsFromExample() throws IOException, JSONException {
+          // given
+          WIRE_MOCK_RULE.stubFor(post(urlPathEqualTo("/example"))
+                  .withRequestBody(equalToJson(jsonFrom("openrtb2/example/test-example-bid-request.json")))
+                  .willReturn(aResponse().withBody(jsonFrom("openrtb2/example/test-example-bid-response.json"))));
+          
+          // when
+          final Response response = given(SPEC)
+                  .header("Content-Type", "application/json")
+                  .body(jsonFrom("openrtb2/example/test-auction-example-request.json"))
+                  .post("/openrtb2/auction");
+          
+          // then
+          assertJson("openrtb2/example/test-auction-example-response.json", response.asString());
+      }
+
+# Configuration
+configuration:
+  yaml_config:
+    location: "src/main/resources/bidder-config/example.yaml"
+    structure: |
+      adapters:
+        example:
+          enabled: true
+          endpoint: https://bid.example.com
+          pbs-enforces-gdpr: true
+          usersync:
+            cookie-family-name: example
+            redirect:
+              url: https://sync.example.com/redir?gdpr={{gdpr}}&consent={{gdpr_consent}}&us_privacy={{us_privacy}}&cb={{redirect_url}}
+              support-cors: false
+            iframe:
+              url: https://sync.example.com/iframe?gdpr={{gdpr}}&consent={{gdpr_consent}}&us_privacy={{us_privacy}}&cb={{redirect_url}}
+              support-cors: false
+          meta-info:
+            maintainer-email: support@example.com
+            app-media-types:
+              - banner
+              - video
+              - native
+            site-media-types:
+              - banner
+              - video
+            supported-vendors:
+            vendor-id: 123
+  
+  properties_binding:
+    description: "Spring properties configuration"
+    example: |
+      @ConfigurationProperties("adapters.example")
+      public class ExampleProperties {
+          @NotBlank
+          private String endpoint;
+          
+          @NotNull
+          private UserSyncProperties usersync;
+          
+          private boolean enabled = true;
+          
+          // getters and setters
+      }
+
+# Performance optimization
+performance:
+  connection_pooling:
+    example: |
+      @Bean
+      HttpClient exampleHttpClient(Vertx vertx, HttpClientOptions options) {
+          return vertx.createHttpClient(options
+                  .setMaxPoolSize(100)
+                  .setIdleTimeout(60)
+                  .setConnectTimeout(5000)
+                  .setKeepAlive(true));
+      }
+  
+  circuit_breaker:
+    example: |
+      private final CircuitBreaker circuitBreaker = CircuitBreaker.create("example", vertx,
+              new CircuitBreakerOptions()
+                      .setMaxFailures(5)
+                      .setTimeout(1000)
+                      .setResetTimeout(10000));
+      
+      return circuitBreaker.execute(promise -> 
+              makeRequest(bidRequest).onComplete(promise));
+  
+  caching:
+    example: |
+      private final Cache<String, BidderConfig> configCache = Caffeine.newBuilder()
+              .maximumSize(1000)
+              .expireAfterWrite(5, TimeUnit.MINUTES)
+              .build();
+
+# Common issues and solutions
+troubleshooting:
+  common_errors:
+    null_pointer:
+      issue: "NullPointerException in bid parsing"
+      solution: "Use Optional or null checks"
+      example: |
+        Optional.ofNullable(bid.getExt())
+                .map(ext -> ext.get("mediaType"))
+                .map(JsonNode::asText)
+                .orElse("banner");
+    
+    json_parsing:
+      issue: "Jackson parsing errors"
+      solution: "Use try-catch and provide context"
+      example: |
+        try {
+            return mapper.decodeValue(response, BidResponse.class);
+        } catch (DecodeException e) {
+            throw new PreBidException("Failed to parse response: " + e.getMessage());
+        }
+    
+    timeout:
+      issue: "Bidder timeouts"
+      solution: "Configure appropriate timeouts"
+      example: |
+        httpClient.request(HttpMethod.POST, endpoint)
+                .timeout(bidderTimeout)
+                .send(buffer);
+
+# Compliance
+compliance:
+  gdpr:
+    implementation: |
+      if (Objects.equals(privacy.getGdpr(), "1")) {
+          request.getRegs().setExt(ExtRegs.of(1, null));
+          request.getUser().setExt(ExtUser.builder()
+                  .consent(privacy.getConsentString())
+                  .build());
+      }
+  
+  ccpa:
+    implementation: |
+      final String usPrivacy = privacy.getUsPrivacy();
+      if (StringUtils.isNotBlank(usPrivacy)) {
+          request.getRegs().setExt(ExtRegs.of(null, usPrivacy));
+      }
+  
+  coppa:
+    implementation: |
+      if (privacy.getCoppa() != null && privacy.getCoppa() == 1) {
+          request.getRegs().setCoppa(1);
+      }
