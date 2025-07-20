@@ -1,0 +1,219 @@
+# Agent context for Prebid.js repository
+# Organized by Prebid architectural concepts and patterns
+
+# Prebid Architectural Concepts
+prebid_concepts:
+  # Core architectural components and their relationships
+  component_hierarchy:
+    core_auction_engine:
+      description: "Heart of Prebid - manages bid requests and responses"
+      components:
+        - "Auction Manager: Orchestrates the bidding process"
+        - "Adapter Manager: Loads and manages demand sources"
+        - "Ad Unit Manager: Handles ad slot configurations"
+        - "Price Granularity: Manages bid bucketing"
+      pr_impact_areas:
+        - "Timing and timeout changes affect all adapters"
+        - "Bid response format changes require adapter updates"
+        - "Currency handling impacts revenue calculations"
+    
+    adapter_ecosystem:
+      description: "Modular system for connecting to demand sources"
+      types:
+        bid_adapters:
+          purpose: "Connect to SSPs/DSPs for bids"
+          interface_requirements:
+            - "buildRequests: Transform Prebid params to bidder format"
+            - "interpretResponse: Transform bidder response to Prebid format"
+            - "getUserSyncs: Handle identity matching"
+          common_patterns:
+            - "OpenRTB conversion"
+            - "Custom parameter mapping"
+            - "Multi-format support (banner/video/native)"
+        
+        analytics_adapters:
+          purpose: "Track auction events and performance"
+          interface_requirements:
+            - "Event listener registration"
+            - "Data transformation and batching"
+            - "Privacy-compliant collection"
+          common_patterns:
+            - "Auction timeline tracking"
+            - "Bid performance analysis"
+            - "Error monitoring"
+        
+        id_modules:
+          purpose: "Provide user identity for better targeting"
+          interface_requirements:
+            - "getId: Retrieve/generate identity"
+            - "decode: Process stored identity"
+            - "Storage strategy definition"
+          common_patterns:
+            - "First-party ID generation"
+            - "Third-party ID integration"
+            - "Consent-based activation"
+    
+    module_system:
+      description: "Extended functionality through pluggable modules"
+      categories:
+        rtd_modules:
+          purpose: "Real-time data enrichment"
+          integration_points:
+            - "Pre-auction data fetch"
+            - "Bid request enrichment"
+            - "Timeout constraints"
+        
+        video_modules:
+          purpose: "Video player integrations"
+          integration_points:
+            - "Player event handling"
+            - "VAST/VPAID support"
+            - "Impression tracking"
+        
+        floor_modules:
+          purpose: "Price floor management"
+          integration_points:
+            - "Dynamic floor calculation"
+            - "Rule engine integration"
+            - "Analytics feedback loop"
+
+# PR Pattern Categories
+pr_patterns:
+  # Grouped by architectural impact
+  adapter_additions:
+    description: "New demand source integrations"
+    scope_considerations:
+      - "Single adapter = isolated impact"
+      - "Shared utilities = potential cross-adapter impact"
+      - "New capabilities = core enhancement needed"
+    validation_framework:
+      technical_requirements:
+        - "Prebid adapter spec compliance"
+        - "OpenRTB support (if applicable)"
+        - "Media type handling"
+        - "Currency support"
+      business_requirements:
+        - "Demand source legitimacy"
+        - "GDPR/Privacy compliance"
+        - "Publisher value proposition"
+    
+  core_enhancements:
+    description: "Improvements to Prebid core functionality"
+    risk_levels:
+      low:
+        - "New utility functions"
+        - "Optional features"
+        - "Backward-compatible additions"
+      medium:
+        - "Auction flow modifications"
+        - "Configuration schema changes"
+        - "Event system updates"
+      high:
+        - "Breaking API changes"
+        - "Adapter interface modifications"
+        - "Data structure changes"
+    
+  performance_optimizations:
+    description: "Speed and efficiency improvements"
+    optimization_areas:
+      auction_performance:
+        - "Parallel processing improvements"
+        - "Timeout optimization"
+        - "Memory usage reduction"
+      loading_performance:
+        - "Bundle size reduction"
+        - "Lazy loading implementation"
+        - "Code splitting strategies"
+      runtime_performance:
+        - "DOM operation batching"
+        - "Event handler efficiency"
+        - "Cache utilization"
+
+# Prebid-Specific Review Guidelines
+prebid_review_guidelines:
+  architectural_compliance:
+    adapter_patterns:
+      - "Must use bidderFactory, not custom registration"
+      - "Must handle all declared media types uniformly"
+      - "Must respect global Prebid configuration"
+      - "Should support standard Prebid features (floors, schain, etc.)"
+    
+    module_patterns:
+      - "Must use appropriate base class/factory"
+      - "Must integrate with consent management"
+      - "Must respect timeout constraints"
+      - "Should provide meaningful analytics events"
+    
+    core_patterns:
+      - "Must maintain backward compatibility"
+      - "Must consider adapter ecosystem impact"
+      - "Must update relevant documentation"
+      - "Should include migration guide if needed"
+  
+  prebid_best_practices:
+    code_organization:
+      - "Adapters isolated in modules/ directory"
+      - "Shared logic in libraries/ directory"
+      - "Core functionality in src/ directory"
+      - "Configuration separate from implementation"
+    
+    data_flow:
+      - "Bid requests flow through standard pipeline"
+      - "Events propagate through central system"
+      - "Configuration cascades appropriately"
+      - "Errors bubble up gracefully"
+    
+    testing_philosophy:
+      - "Unit tests for all new functionality"
+      - "Integration tests for adapter communication"
+      - "Mock external dependencies appropriately"
+      - "Test edge cases and error scenarios"
+
+# Common Prebid Anti-Patterns
+prebid_anti_patterns:
+  adapter_anti_patterns:
+    - pattern: "Direct auction manipulation"
+      why_bad: "Bypasses Prebid's fairness guarantees"
+      correct_approach: "Use proper adapter interface"
+    
+    - pattern: "Synchronous external calls"
+      why_bad: "Blocks auction and hurts performance"
+      correct_approach: "Use async patterns with timeouts"
+    
+    - pattern: "Storing state globally"
+      why_bad: "Causes issues with multiple Prebid instances"
+      correct_approach: "Use adapter-scoped storage"
+  
+  module_anti_patterns:
+    - pattern: "Ignoring consent signals"
+      why_bad: "Violates privacy regulations"
+      correct_approach: "Check consent before processing"
+    
+    - pattern: "Unlimited data collection"
+      why_bad: "Performance and privacy concerns"
+      correct_approach: "Collect only necessary data"
+  
+  core_anti_patterns:
+    - pattern: "Breaking adapter contracts"
+      why_bad: "Forces updates across ecosystem"
+      correct_approach: "Maintain compatibility or provide migration"
+
+# Prebid Ecosystem Context
+ecosystem_context:
+  publisher_considerations:
+    - "Page performance is critical"
+    - "Revenue optimization is primary goal"
+    - "Easy integration is expected"
+    - "Debugging capabilities needed"
+  
+  industry_standards:
+    - "OpenRTB protocol compliance"
+    - "IAB taxonomy support"
+    - "Privacy framework integration"
+    - "Supply chain transparency"
+  
+  competitive_landscape:
+    - "Feature parity with other headers"
+    - "Performance benchmarks"
+    - "Adapter coverage"
+    - "Innovation in monetization"

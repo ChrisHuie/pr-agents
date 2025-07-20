@@ -311,7 +311,7 @@ class AIService(BaseAIService):
                 )
             except Exception as e:
                 logger.warning(f"Failed to load agent context: {str(e)}")
-            
+
             # Build prompt with agent context
             prompt = self.prompt_builder.build_prompt(
                 persona, code_changes, repo_context, pr_metadata, agent_context
@@ -472,7 +472,7 @@ class AIService(BaseAIService):
         agent_context = self.context_loader.load_context_for_pr(
             self.provider.name, repo_name
         )
-        
+
         for persona in personas:
             # Build prompt with agent context
             prompt = self.prompt_builder.build_prompt(

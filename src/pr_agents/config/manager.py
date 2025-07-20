@@ -64,6 +64,49 @@ class RepositoryStructureManager:
         repo_name = self._extract_repo_name(repo_url)
         return self.config.get_repository(repo_name)
 
+    def get_config_for_url(self, repo_url: str) -> dict[str, Any]:
+        """
+        Get enriched configuration for a repository URL.
+
+        This method combines the base repository structure with knowledge
+        from YAML files to provide a complete context for AI and other processors.
+
+        Args:
+            repo_url: Repository URL (e.g., https://github.com/owner/repo)
+
+        Returns:
+            Dictionary containing enriched repository configuration
+        """
+        repo = self.get_repository(repo_url)
+        if not repo:
+            logger.warning(f"No configuration found for repository: {repo_url}")
+            return {}
+
+        # Convert model to dict
+        config = repo.model_dump(exclude_none=True)
+
+        # Extract repository name for knowledge loading
+        repo_name = self._extract_repo_name(repo_url)
+
+        # Try to load and merge knowledge if available
+        try:
+            from .knowledge_loader import RepositoryKnowledgeLoader
+
+            knowledge_loader = RepositoryKnowledgeLoader(self.config_path)
+            enriched_config = knowledge_loader.load_repository_config(repo_name)
+
+            # Merge knowledge into base config
+            if enriched_config:
+                # Preserve base config and overlay knowledge
+                config.update(enriched_config)
+                logger.debug(
+                    f"Enriched configuration for {repo_name} with knowledge base"
+                )
+        except Exception as e:
+            logger.warning(f"Could not load knowledge for {repo_name}: {e}")
+
+        return config
+
     def _extract_repo_name(self, repo_url: str) -> str:
         """Extract repository name from URL."""
         # Handle various URL formats

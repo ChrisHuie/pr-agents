@@ -6,7 +6,7 @@ from typing import Any
 
 from loguru import logger
 
-from src.pr_agents.config.manager import RepositoryStructureManager
+from src.pr_agents.config.unified_manager import UnifiedRepositoryContextManager
 from src.pr_agents.pr_processing.processors.base import BaseProcessor, ProcessingResult
 from src.pr_agents.services.ai import AIService, BaseAIService
 
@@ -17,17 +17,17 @@ class AIProcessor(BaseProcessor):
     def __init__(
         self,
         ai_service: BaseAIService | None = None,
-        repo_config_manager: RepositoryStructureManager | None = None,
+        context_manager: UnifiedRepositoryContextManager | None = None,
     ):
         """Initialize AI processor.
 
         Args:
             ai_service: AI service instance (creates default if None)
-            repo_config_manager: Repository configuration manager
+            context_manager: Unified repository context manager
         """
         self.ai_service = ai_service or AIService()
-        # Repository config manager is optional - will be None if not provided
-        self.repo_config_manager = repo_config_manager
+        # Context manager provides rich repository understanding
+        self.context_manager = context_manager or UnifiedRepositoryContextManager()
 
     @property
     def component_name(self) -> str:
@@ -63,8 +63,8 @@ class AIProcessor(BaseProcessor):
                     errors=["No code data provided for AI analysis"],
                 )
 
-            # Build repository context
-            repo_context = self._build_repo_context(repo_url, code_data)
+            # Get enriched repository context using unified manager
+            repo_context = self._get_enriched_repo_context(repo_url, code_data)
 
             # Prepare PR metadata
             pr_metadata = {
@@ -135,51 +135,119 @@ class AIProcessor(BaseProcessor):
             future = executor.submit(asyncio.run, async_coroutine)
             return future.result()
 
-    def _build_repo_context(
+    def _get_enriched_repo_context(
         self, repo_url: str, code_data: dict[str, Any]
     ) -> dict[str, Any]:
-        """Build repository context for AI prompts.
+        """Get enriched repository context using unified context manager.
 
         Args:
             repo_url: Repository URL
             code_data: Code change data
 
         Returns:
-            Repository context dictionary
+            Repository context dictionary optimized for AI
         """
-        context = {
-            "name": self._extract_repo_name(repo_url),
-            "url": repo_url,
-        }
+        # Get AI-optimized context from unified manager
+        context = self.context_manager.get_context_for_ai(repo_url)
 
-        # Try to get repository configuration
-        if self.repo_config_manager and repo_url:
-            try:
-                repo_config = self.repo_config_manager.get_config_for_url(repo_url)
-                if repo_config:
-                    context.update(
-                        {
-                            "type": repo_config.get("repo_type", "unknown"),
-                            "description": repo_config.get("description", ""),
-                            "module_patterns": repo_config.get("module_locations", {}),
-                            "structure": {
-                                "core_paths": repo_config.get("core_paths", []),
-                                "test_paths": repo_config.get("test_paths", []),
-                                "doc_paths": repo_config.get("doc_paths", []),
-                            },
-                        }
-                    )
-            except Exception as e:
-                logger.warning(f"Could not load repo config: {str(e)}")
-
-        # Add language information if available
+        # Add detected languages from actual file changes
         if "file_diffs" in code_data:
             languages = self._detect_languages(code_data["file_diffs"])
             if languages:
+                # Override with detected languages as they're more accurate
                 context["primary_language"] = languages[0]
                 context["languages"] = languages
 
+        # Add code change context
+        context["change_context"] = self._analyze_change_context(code_data, context)
+
+        logger.debug(
+            f"Built enriched context for {repo_url}: {context.get('type', 'unknown')} repository"
+        )
+
         return context
+
+    def _analyze_change_context(
+        self, code_data: dict[str, Any], repo_context: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Analyze the change context based on repository knowledge.
+
+        Args:
+            code_data: Code change data
+            repo_context: Repository context
+
+        Returns:
+            Change-specific context
+        """
+        change_context = {
+            "change_patterns": [],
+            "affected_components": [],
+            "review_focus_areas": [],
+        }
+
+        # Analyze files to detect patterns
+        if "file_diffs" in code_data:
+            for file_diff in code_data["file_diffs"]:
+                filename = file_diff.get("filename", "")
+
+                # Check against module patterns if available
+                if "module_patterns" in repo_context:
+                    for pattern_name, pattern_info in repo_context[
+                        "module_patterns"
+                    ].items():
+                        if self._matches_module_pattern(filename, pattern_info):
+                            change_context["affected_components"].append(
+                                {
+                                    "type": pattern_name,
+                                    "name": pattern_info.get(
+                                        "display_name", pattern_name
+                                    ),
+                                    "file": filename,
+                                }
+                            )
+
+                # Detect common change patterns
+                if filename.endswith("_spec.js") or filename.endswith("_test.js"):
+                    change_context["change_patterns"].append("test_modification")
+                elif filename.endswith(".md"):
+                    change_context["change_patterns"].append("documentation_update")
+
+        # Add PR-specific patterns from agent context
+        if "pr_patterns" in repo_context:
+            # This would match against the patterns defined in agent context
+            # For now, we'll note that patterns are available
+            change_context["has_pr_patterns"] = True
+
+        # Deduplicate
+        change_context["affected_components"] = list(
+            {
+                (comp["type"], comp["file"]): comp
+                for comp in change_context["affected_components"]
+            }.values()
+        )
+        change_context["change_patterns"] = list(set(change_context["change_patterns"]))
+
+        return change_context
+
+    def _matches_module_pattern(
+        self, filename: str, pattern_info: dict[str, Any]
+    ) -> bool:
+        """Check if filename matches a module pattern.
+
+        Args:
+            filename: File path to check
+            pattern_info: Pattern information dict
+
+        Returns:
+            True if matches
+        """
+        # Check if file is in specified paths
+        for path in pattern_info.get("paths", []):
+            if filename.startswith(path):
+                return True
+
+        # Could be extended to check actual patterns
+        return False
 
     def _extract_repo_name(self, repo_url: str) -> str:
         """Extract repository name from URL.

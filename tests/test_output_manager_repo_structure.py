@@ -240,9 +240,7 @@ class TestOutputManagerRepoStructure:
             )
 
             # Should have both repo structure and auto-generated name
-            assert "output/Prebid.js/PR12440-seedtagBidAdapter.md" in str(
-                saved_path
-            )
+            assert "output/Prebid.js/PR12440-seedtagBidAdapter.md" in str(saved_path)
             assert saved_path.exists()
         finally:
             os.chdir(original_cwd)

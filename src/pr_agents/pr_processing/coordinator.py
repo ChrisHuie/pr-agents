@@ -74,34 +74,50 @@ class PRCoordinator:
             # Check if we should use ADK
             ai_provider = os.getenv("AI_PROVIDER", "gemini").lower()
 
+            # Get config directory from environment or use default
+            config_dir = os.getenv("PR_AGENTS_CONFIG_DIR", "config")
+
             if ai_provider == "adk" or ai_provider == "google-adk":
                 logger.info("Registering AI processor with Google ADK")
+                from ..config.unified_manager import UnifiedRepositoryContextManager
                 from ..services.ai.adk_service import ADKAIService
                 from .processors.ai_processor import AIProcessor
 
+                # Initialize unified context manager
+                context_manager = UnifiedRepositoryContextManager(config_dir=config_dir)
                 # Enable batch context for ADK
                 self.ai_service = ADKAIService(use_batch_context=True)
-                ai_processor = AIProcessor(self.ai_service)
+                ai_processor = AIProcessor(self.ai_service, context_manager)
                 self.component_manager.register_processor("ai_summaries", ai_processor)
-                log_processing_step("AI processor registered with ADK")
+                log_processing_step(
+                    "AI processor registered with ADK and unified context"
+                )
             elif ai_provider == "claude-adk":
                 logger.info("Registering AI processor with Claude ADK")
+                from ..config.unified_manager import UnifiedRepositoryContextManager
                 from ..services.ai.claude_adk_service import ClaudeADKService
                 from .processors.ai_processor import AIProcessor
 
+                # Initialize unified context manager
+                context_manager = UnifiedRepositoryContextManager(config_dir=config_dir)
                 self.ai_service = ClaudeADKService()
-                ai_processor = AIProcessor(self.ai_service)
+                ai_processor = AIProcessor(self.ai_service, context_manager)
                 self.component_manager.register_processor("ai_summaries", ai_processor)
-                log_processing_step("AI processor registered with Claude ADK")
+                log_processing_step(
+                    "AI processor registered with Claude ADK and unified context"
+                )
             else:
+                from ..config.unified_manager import UnifiedRepositoryContextManager
                 from ..services.ai import AIService
                 from .processors.ai_processor import AIProcessor
 
-                logger.info("Registering AI processor")
+                logger.info("Registering AI processor with unified context")
+                # Initialize unified context manager
+                context_manager = UnifiedRepositoryContextManager(config_dir=config_dir)
                 self.ai_service = AIService()
-                ai_processor = AIProcessor(self.ai_service)
+                ai_processor = AIProcessor(self.ai_service, context_manager)
                 self.component_manager.register_processor("ai_summaries", ai_processor)
-                log_processing_step("AI processor registered")
+                log_processing_step("AI processor registered with unified context")
         except Exception as e:
             logger.error(f"Failed to register AI processor: {str(e)}")
             self.ai_enabled = False
