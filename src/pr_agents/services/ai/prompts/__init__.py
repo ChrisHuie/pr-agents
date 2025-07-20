@@ -5,6 +5,7 @@ from src.pr_agents.services.ai.prompts.templates import (
     DEVELOPER_TEMPLATE,
     EXECUTIVE_TEMPLATE,
     PRODUCT_TEMPLATE,
+    REVIEWER_TEMPLATE,
 )
 
 __all__ = [
@@ -12,4 +13,5 @@ __all__ = [
     "EXECUTIVE_TEMPLATE",
     "PRODUCT_TEMPLATE",
     "DEVELOPER_TEMPLATE",
+    "REVIEWER_TEMPLATE",
 ]

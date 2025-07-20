@@ -7,6 +7,7 @@ from src.pr_agents.services.ai.prompts.templates import (
     DEVELOPER_TEMPLATE,
     EXECUTIVE_TEMPLATE,
     PRODUCT_TEMPLATE,
+    REVIEWER_TEMPLATE,
 )
 
 
@@ -19,6 +20,7 @@ class PromptBuilder:
             "executive": EXECUTIVE_TEMPLATE,
             "product": PRODUCT_TEMPLATE,
             "developer": DEVELOPER_TEMPLATE,
+            "reviewer": REVIEWER_TEMPLATE,
         }
 
     def build_prompt(
@@ -27,6 +29,7 @@ class PromptBuilder:
         code_changes: CodeChanges,
         repo_context: dict[str, Any],
         pr_metadata: dict[str, Any],
+        agent_context: str | None = None,
     ) -> str:
         """Build a prompt for the specified persona.
 
@@ -35,6 +38,7 @@ class PromptBuilder:
             code_changes: Extracted code change data
             repo_context: Repository-specific context
             pr_metadata: PR metadata including title and description
+            agent_context: Optional agent-specific context
 
         Returns:
             Formatted prompt string
@@ -52,7 +56,14 @@ class PromptBuilder:
             persona, code_changes, repo_context, pr_metadata
         )
 
-        return template.format(**template_vars)
+        # Add agent context if provided
+        if agent_context:
+            # Prepend agent context to the prompt
+            prompt = f"{agent_context}\n\n---\n\n{template.format(**template_vars)}"
+        else:
+            prompt = template.format(**template_vars)
+
+        return prompt
 
     def _extract_template_variables(
         self,
@@ -102,7 +113,7 @@ class PromptBuilder:
             vars_dict["changes_summary"] = self._build_executive_summary(code_changes)
         elif persona == "product":
             vars_dict["detailed_changes"] = self._build_product_changes(code_changes)
-        elif persona == "developer":
+        elif persona in ["developer", "reviewer"]:
             vars_dict["code_patterns"] = self._detect_code_patterns(code_changes)
             vars_dict["full_diff_analysis"] = self._build_developer_diff_analysis(
                 code_changes

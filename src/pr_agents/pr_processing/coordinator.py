@@ -39,8 +39,9 @@ class PRCoordinator:
         self.ai_enabled = ai_enabled
         log_processing_step("GitHub client initialized")
 
-        # Initialize component manager
-        self.component_manager = ComponentManager(self.github_client)
+        # Initialize component manager with config directory
+        config_dir = os.getenv("PR_AGENTS_CONFIG_DIR", "config")
+        self.component_manager = ComponentManager(self.github_client, config_dir)
         log_processing_step("Component manager initialized")
 
         # Register AI processor if enabled

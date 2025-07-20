@@ -27,6 +27,7 @@ class ResultFormatter:
         # Extract PR metadata
         pr_url = results.get("pr_url", "")
         processing_results = results.get("processing_results", [])
+        extracted_data = results.get("extracted_data", {})
 
         # Parse PR info from URL
         pr_info = ResultFormatter._parse_pr_url(pr_url)
@@ -35,7 +36,11 @@ class ResultFormatter:
         output = {
             "pr_url": pr_url,
             "pr_number": pr_info.get("pr_number"),
-            "repository": pr_info.get("repository"),
+            "repository": (
+                {"full_name": pr_info.get("repository")}
+                if pr_info.get("repository")
+                else None
+            ),
         }
 
         # Add processed component data
@@ -46,14 +51,30 @@ class ResultFormatter:
 
                 if component == "metadata":
                     output["metadata"] = ResultFormatter._format_metadata(data)
+                    # Also store the raw title for filename generation
+                    if "title" in data:
+                        output["pr_title"] = data["title"]
                 elif component == "code_changes":
                     output["code_changes"] = ResultFormatter._format_code_changes(data)
                 elif component == "repository":
                     output["repository_info"] = ResultFormatter._format_repository(data)
+                    # Also update the repository field with full_name if available
+                    if "full_name" in data:
+                        output["repository"] = {"full_name": data["full_name"]}
                 elif component == "reviews":
                     output["reviews"] = ResultFormatter._format_reviews(data)
+                elif component == "modules":
+                    output["modules"] = (
+                        data  # Keep raw module data for filename generation
+                    )
                 elif component == "ai_summaries":
                     output["ai_summaries"] = data
+
+        # Add extracted data that doesn't have processors (like modules)
+        if extracted_data and isinstance(extracted_data, dict):
+            # Check for modules data in extracted components
+            if "modules" in extracted_data and "modules" not in output:
+                output["modules"] = extracted_data["modules"]
 
         # Add processing metrics
         output["processing_metrics"] = ResultFormatter._format_metrics(results)

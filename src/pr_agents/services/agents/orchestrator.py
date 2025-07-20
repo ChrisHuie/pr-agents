@@ -10,13 +10,20 @@ from loguru import logger
 from ...pr_processing.analysis_models import AISummaries, PersonaSummary
 from .context import PrebidContextEnricher, RepositoryContextProvider
 from .context.batch_context import BatchContextProvider
-from .personas import DeveloperSummaryAgent, ExecutiveSummaryAgent, ProductSummaryAgent, ReviewerSummaryAgent
+from .personas import (
+    DeveloperSummaryAgent,
+    ExecutiveSummaryAgent,
+    ProductSummaryAgent,
+    ReviewerSummaryAgent,
+)
 
 
 class SummaryAgentOrchestrator:
     """Orchestrates multiple persona agents for summary generation."""
 
-    def __init__(self, model: str = "gemini-2.0-flash", use_batch_context: bool = False):
+    def __init__(
+        self, model: str = "gemini-2.0-flash", use_batch_context: bool = False
+    ):
         """Initialize the orchestrator.
 
         Args:
@@ -25,14 +32,14 @@ class SummaryAgentOrchestrator:
         """
         self.model = model
         self.use_batch_context = use_batch_context
-        
+
         # Initialize context providers
         if use_batch_context:
             self.batch_context_provider = BatchContextProvider()
             logger.info("Using batch-optimized context provider")
         else:
             self.batch_context_provider = None
-            
+
         self.context_provider = RepositoryContextProvider()
         self.prebid_enricher = PrebidContextEnricher()
 
@@ -106,10 +113,16 @@ class SummaryAgentOrchestrator:
         )
 
         # Check if specific personas are requested
-        requested_personas = os.getenv("AI_PERSONAS", "").split(",") if os.getenv("AI_PERSONAS") else []
+        requested_personas = (
+            os.getenv("AI_PERSONAS", "").split(",") if os.getenv("AI_PERSONAS") else []
+        )
         if requested_personas and requested_personas[0]:  # Filter out empty string
-            active_personas = {k: v for k, v in self.agents.items() if k in requested_personas}
-            logger.info(f"Generating summaries for selected personas: {list(active_personas.keys())}")
+            active_personas = {
+                k: v for k, v in self.agents.items() if k in requested_personas
+            }
+            logger.info(
+                f"Generating summaries for selected personas: {list(active_personas.keys())}"
+            )
         else:
             active_personas = self.agents
             logger.info("Generating summaries for all personas")
@@ -130,15 +143,15 @@ class SummaryAgentOrchestrator:
 
         # Create placeholder for missing personas
         def get_persona_or_placeholder(persona_name: str) -> PersonaSummary:
-            found = next((s for s in persona_summaries if s.persona == persona_name), None)
+            found = next(
+                (s for s in persona_summaries if s.persona == persona_name), None
+            )
             if found:
                 return found
             else:
                 # Return a placeholder for personas that weren't requested
                 return PersonaSummary(
-                    persona=persona_name,
-                    summary="[Not requested]",
-                    confidence=0.0
+                    persona=persona_name, summary="[Not requested]", confidence=0.0
                 )
 
         # Create AISummaries object
@@ -159,19 +172,19 @@ class SummaryAgentOrchestrator:
         logger.info(f"Generated all summaries in {generation_time_ms}ms")
 
         return summaries
-    
+
     def start_batch(self, repo_url: str) -> None:
         """Start a batch operation for a specific repository.
-        
+
         This optimizes context loading for multiple PRs from the same repository.
-        
+
         Args:
             repo_url: Repository URL for the batch
         """
         if self.batch_context_provider:
             self.batch_context_provider.start_batch(repo_url)
             logger.info(f"Started batch processing for {repo_url}")
-    
+
     def end_batch(self) -> None:
         """End the current batch operation."""
         if self.batch_context_provider:

@@ -8,6 +8,7 @@ from typing import Any, Literal
 from loguru import logger
 
 from .base import BaseFormatter
+from .filename_generator import FilenameGenerator
 from .json_formatter import JSONFormatter
 from .markdown import MarkdownFormatter
 from .text import TextFormatter
@@ -63,6 +64,8 @@ class OutputManager:
         data: dict[str, Any],
         filepath: Path | str,
         format_type: OutputFormat | None = None,
+        repo_structure: bool = True,
+        auto_name: bool = True,
     ) -> Path:
         """
         Save formatted data to a file.
@@ -71,6 +74,8 @@ class OutputManager:
             data: PR analysis results dictionary
             filepath: Path to save the file (can be with or without extension)
             format_type: Output format type (if None, inferred from filepath)
+            repo_structure: If True and data contains repo info, organize in repo subdirectory
+            auto_name: If True, generate descriptive filename for generic names
 
         Returns:
             Path to the saved file
@@ -79,6 +84,27 @@ class OutputManager:
             ValueError: If format cannot be determined
         """
         filepath = Path(filepath)
+
+        # Generate descriptive filename if enabled and name is generic
+        if auto_name and filepath.name:
+            base_name = filepath.stem  # filename without extension
+            descriptive_name = FilenameGenerator.generate_pr_filename(data, base_name)
+            if descriptive_name != base_name:
+                # Replace the filename with the descriptive one
+                filepath = filepath.parent / descriptive_name
+                if filepath.suffix == "":  # Preserve original extension if it had one
+                    filepath = filepath.with_suffix(Path(str(filepath)).suffix)
+
+        # Apply repository-based directory structure if requested
+        if repo_structure and "repository" in data:
+            repo_info = data["repository"]
+            if "full_name" in repo_info:
+                # Extract just the repo name from full_name (e.g., "owner/repo" -> "repo")
+                repo_name = repo_info["full_name"].split("/")[-1]
+                repo_path = Path("output") / repo_name
+                # If filepath is relative, prepend the repo path
+                if not filepath.is_absolute():
+                    filepath = repo_path / filepath
 
         # Determine format from file extension if not specified
         if format_type is None:
@@ -105,7 +131,12 @@ class OutputManager:
         return filepath
 
     def save_multiple_formats(
-        self, data: dict[str, Any], base_path: Path | str, formats: list[OutputFormat]
+        self,
+        data: dict[str, Any],
+        base_path: Path | str,
+        formats: list[OutputFormat],
+        repo_structure: bool = True,
+        auto_name: bool = True,
     ) -> list[Path]:
         """
         Save data in multiple formats.
@@ -114,6 +145,8 @@ class OutputManager:
             data: PR analysis results dictionary
             base_path: Base path for files (without extension)
             formats: List of output formats
+            repo_structure: If True and data contains repo info, organize in repo subdirectory
+            auto_name: If True, generate descriptive filename for generic names
 
         Returns:
             List of paths to saved files
@@ -123,7 +156,9 @@ class OutputManager:
 
         for format_type in formats:
             try:
-                filepath = self.save(data, base_path, format_type)
+                filepath = self.save(
+                    data, base_path, format_type, repo_structure, auto_name
+                )
                 saved_files.append(filepath)
             except Exception as e:
                 logger.error("Failed to save {} format: {}", format_type, e)

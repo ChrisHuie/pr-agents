@@ -2,6 +2,7 @@
 Component manager for extractor and processor lifecycle management.
 """
 
+from pathlib import Path
 from typing import Any
 
 from github import Github
@@ -18,6 +19,7 @@ from ..extractors import (
 from ..extractors.modules import ModuleExtractor
 from ..processors import BaseProcessor, CodeProcessor, MetadataProcessor, RepoProcessor
 from ..processors.accuracy_validator import AccuracyValidator
+from ..processors.module_processor import ModuleProcessor
 
 
 class ComponentManager:
@@ -27,16 +29,32 @@ class ComponentManager:
     Provides centralized component initialization and lookup.
     """
 
-    def __init__(self, github_client: Github) -> None:
+    def __init__(
+        self, github_client: Github, config_dir: Path | str | None = None
+    ) -> None:
         """
         Initialize component manager with GitHub client.
 
         Args:
             github_client: Authenticated GitHub client
+            config_dir: Optional configuration directory path
         """
         self.github_client = github_client
         self._extractors: dict[str, BaseExtractor] = {}
         self._processors: dict[str, BaseProcessor] = {}
+        self.config_dir = Path(config_dir) if config_dir else None
+        self._knowledge_loader = None
+
+        # Lazy load knowledge loader if config dir provided
+        if self.config_dir and self.config_dir.exists():
+            try:
+                from src.pr_agents.config.knowledge_loader import (
+                    RepositoryKnowledgeLoader,
+                )
+
+                self._knowledge_loader = RepositoryKnowledgeLoader(self.config_dir)
+            except ImportError:
+                logger.warning("Knowledge loader not available")
 
         # Initialize components
         self._initialize_extractors()
@@ -65,6 +83,7 @@ class ComponentManager:
             "code_changes": CodeProcessor(),
             "repository": RepoProcessor(),
             "accuracy_validation": AccuracyValidator(),
+            "modules": ModuleProcessor(),
         }
 
         log_processing_step(f"Initialized {len(self._processors)} processors")
@@ -141,6 +160,30 @@ class ComponentManager:
         """Get list of available processor names."""
         return list(self._processors.keys())
 
+    def configure_for_repository(self, repo_full_name: str) -> None:
+        """
+        Configure components for a specific repository.
+
+        Args:
+            repo_full_name: Full repository name (e.g., "prebid/Prebid.js")
+        """
+        if not self._knowledge_loader:
+            logger.debug(f"No knowledge loader available for {repo_full_name}")
+            return
+
+        try:
+            # Load enriched configuration
+            config = self._knowledge_loader.load_repository_config(repo_full_name)
+
+            # Configure module extractor if available
+            module_extractor = self._extractors.get("modules")
+            if module_extractor and hasattr(module_extractor, "set_repository_config"):
+                module_extractor.set_repository_config(config)
+                logger.info(f"Configured module extractor for {repo_full_name}")
+
+        except Exception as e:
+            logger.error(f"Error configuring for repository {repo_full_name}: {e}")
+
     def register_processor(self, name: str, processor: BaseProcessor) -> None:
         """
         Register a new processor.
@@ -170,7 +213,22 @@ class ComponentManager:
             "code_changes": pr_data.code_changes,
             "repository": pr_data.repository_info,
             "reviews": pr_data.review_data,
+            "modules": pr_data.modules,
         }
+
+        # Special handling for modules processor
+        if component_name == "modules" and pr_data.modules is not None:
+            # Modules processor needs repository info for context
+            modules_data = (
+                pr_data.modules.copy() if isinstance(pr_data.modules, dict) else {}
+            )
+            if pr_data.repository_info:
+                repo_info = pr_data.repository_info
+                if hasattr(repo_info, "model_dump"):
+                    modules_data["repository"] = repo_info.model_dump()
+                elif isinstance(repo_info, dict):
+                    modules_data["repository"] = repo_info
+            return modules_data
 
         # Special handling for AI summaries processor
         if component_name == "ai_summaries":

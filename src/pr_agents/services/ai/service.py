@@ -13,6 +13,7 @@ from src.pr_agents.pr_processing.models import CodeChanges
 from src.pr_agents.services.ai.base import BaseAIService
 from src.pr_agents.services.ai.cache import SummaryCache
 from src.pr_agents.services.ai.config import AIConfig
+from src.pr_agents.services.ai.context_loader import AgentContextLoader
 
 # Cost optimizer removed - using only specified provider
 from src.pr_agents.services.ai.feedback import FeedbackIntegrator, FeedbackStore
@@ -47,6 +48,7 @@ class AIService(BaseAIService):
         self.provider = provider or self._create_provider_from_env()
         self.prompt_builder = PromptBuilder()
         self.validator = SummaryValidator()
+        self.context_loader = AgentContextLoader()
 
         # Initialize cache based on config
         self.cache = (
@@ -180,7 +182,7 @@ class AIService(BaseAIService):
         # Using only the specified provider - no automatic switching
 
         # Generate summaries for each persona
-        personas = ["executive", "product", "developer"]
+        personas = ["executive", "product", "developer", "reviewer"]
         summaries = {}
         total_tokens = 0
 
@@ -223,6 +225,7 @@ class AIService(BaseAIService):
             executive_summary=summaries["executive_summary"],
             product_summary=summaries["product_summary"],
             developer_summary=summaries["developer_summary"],
+            reviewer_summary=summaries["reviewer_summary"],
             model_used=self.provider.name,
             generation_timestamp=datetime.now(),
             cached=False,
@@ -299,9 +302,19 @@ class AIService(BaseAIService):
             PersonaSummary for the specified persona
         """
         try:
-            # Build prompt
+            # Load agent-specific context if available
+            agent_context = None
+            try:
+                repo_name = repo_context.get("full_name", repo_context.get("name", ""))
+                agent_context = self.context_loader.load_context_for_pr(
+                    self.provider.name, repo_name
+                )
+            except Exception as e:
+                logger.warning(f"Failed to load agent context: {str(e)}")
+            
+            # Build prompt with agent context
             prompt = self.prompt_builder.build_prompt(
-                persona, code_changes, repo_context, pr_metadata
+                persona, code_changes, repo_context, pr_metadata, agent_context
             )
 
             # Get persona config
@@ -452,12 +465,18 @@ class AIService(BaseAIService):
         handler = StreamingHandler()
 
         # Start streaming for each persona
-        personas = ["executive", "product", "developer"]
+        personas = ["executive", "product", "developer", "reviewer"]
 
+        # Load agent-specific context once for all personas
+        repo_name = repo_context.get("full_name", repo_context.get("name", ""))
+        agent_context = self.context_loader.load_context_for_pr(
+            self.provider.name, repo_name
+        )
+        
         for persona in personas:
-            # Build prompt
+            # Build prompt with agent context
             prompt = self.prompt_builder.build_prompt(
-                persona, code_changes, repo_context, pr_metadata
+                persona, code_changes, repo_context, pr_metadata, agent_context
             )
 
             # Get persona config

@@ -184,7 +184,7 @@ class BaseSummaryAgent(ABC):
             file_list.append(
                 f"- {diff['filename']} (+{diff['additions']}, -{diff['deletions']})"
             )
-            file_names.append(diff['filename'])
+            file_names.append(diff["filename"])
 
             # Add the actual code patch if available
             if diff.get("patch"):
@@ -195,13 +195,12 @@ class BaseSummaryAgent(ABC):
 
         # Get enhanced context if available
         enhanced_context = None
-        repo_url = repo_context.get('url', '')
-        logger.debug(f"Base agent repo_url: {repo_url}, has context provider: {hasattr(self, '_context_provider')}")
-        if hasattr(self, '_context_provider') and repo_url:
-            enhanced_context = self._context_provider.get_context(
-                repo_url,
-                file_names
-            )
+        repo_url = repo_context.get("url", "")
+        logger.debug(
+            f"Base agent repo_url: {repo_url}, has context provider: {hasattr(self, '_context_provider')}"
+        )
+        if hasattr(self, "_context_provider") and repo_url:
+            enhanced_context = self._context_provider.get_context(repo_url, file_names)
 
         # Build the prompt
         prompt_parts = [
@@ -215,26 +214,32 @@ class BaseSummaryAgent(ABC):
 
         # Use enhanced context if available
         if enhanced_context:
-            prompt_parts.extend([
-                f"\nRepository: {enhanced_context.get('repository', 'unknown')}",
-                f"Type: {enhanced_context.get('type', 'unknown')}",
-                f"Description: {enhanced_context.get('description', '')}",
-                f"Primary Language: {enhanced_context.get('primary_language', '')}",
-                f"Ecosystem: {enhanced_context.get('ecosystem', '')}",
-            ])
+            prompt_parts.extend(
+                [
+                    f"\nRepository: {enhanced_context.get('repository', 'unknown')}",
+                    f"Type: {enhanced_context.get('type', 'unknown')}",
+                    f"Description: {enhanced_context.get('description', '')}",
+                    f"Primary Language: {enhanced_context.get('primary_language', '')}",
+                    f"Ecosystem: {enhanced_context.get('ecosystem', '')}",
+                ]
+            )
         else:
-            prompt_parts.extend([
-                f"\nRepository Type: {repo_context.get('type', 'unknown')}",
-                f"Repository: {repo_context.get('name', 'unknown')}",
-            ])
+            prompt_parts.extend(
+                [
+                    f"\nRepository Type: {repo_context.get('type', 'unknown')}",
+                    f"Repository: {repo_context.get('name', 'unknown')}",
+                ]
+            )
 
-        prompt_parts.extend([
-            "\nCode Statistics:",
-            f"- Files Changed: {files_changed}",
-            f"- Lines Added: {additions}",
-            f"- Lines Deleted: {deletions}",
-            "\nModified Files:",
-        ])
+        prompt_parts.extend(
+            [
+                "\nCode Statistics:",
+                f"- Files Changed: {files_changed}",
+                f"- Lines Added: {additions}",
+                f"- Lines Deleted: {deletions}",
+                "\nModified Files:",
+            ]
+        )
         prompt_parts.extend(file_list)
 
         # Add actual code diffs
@@ -245,24 +250,28 @@ class BaseSummaryAgent(ABC):
         # Add enhanced context elements
         if enhanced_context:
             # Add relevant examples
-            if enhanced_context.get('relevant_examples'):
+            if enhanced_context.get("relevant_examples"):
                 prompt_parts.append("\n## Relevant Code Examples from Repository:")
-                for example in enhanced_context['relevant_examples'][:2]:  # Limit to 2
+                for example in enhanced_context["relevant_examples"][:2]:  # Limit to 2
                     prompt_parts.append(f"\n### {example['description']}")
                     prompt_parts.append("```")
-                    prompt_parts.append(example['code'][:500] + "..." if len(example['code']) > 500 else example['code'])
+                    prompt_parts.append(
+                        example["code"][:500] + "..."
+                        if len(example["code"]) > 500
+                        else example["code"]
+                    )
                     prompt_parts.append("```")
-            
+
             # Add quality checklist
-            if enhanced_context.get('quality_checklist'):
+            if enhanced_context.get("quality_checklist"):
                 prompt_parts.append("\n## Quality Considerations for this Repository:")
-                for item in enhanced_context['quality_checklist'][:5]:  # Limit to 5
+                for item in enhanced_context["quality_checklist"][:5]:  # Limit to 5
                     prompt_parts.append(f"- {item}")
-            
+
             # Add file-specific guidance
-            if enhanced_context.get('file_guidance'):
+            if enhanced_context.get("file_guidance"):
                 prompt_parts.append("\n## File-Specific Guidelines:")
-                for file_type, guidance in enhanced_context['file_guidance'].items():
+                for file_type, guidance in enhanced_context["file_guidance"].items():
                     prompt_parts.append(f"\n{file_type.title()}:")
                     if isinstance(guidance, dict):
                         for key, value in guidance.items():

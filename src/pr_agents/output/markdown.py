@@ -37,28 +37,35 @@ class MarkdownFormatter(BaseFormatter):
         if "pr_number" in data:
             lines.append(f"**PR Number:** #{data['pr_number']}")
 
+        # Repository info
         if "repository" in data:
-            lines.append(f"**Repository:** {data['repository']}")
+            repo_info = data["repository"]
+            if isinstance(repo_info, dict):
+                lines.append(f"**Repository:** {repo_info.get('full_name', 'Unknown')}")
+            else:
+                lines.append(f"**Repository:** {repo_info}")
+
+        # Release info (if available)
+        if "release_version" in data:
+            lines.append(f"**Release:** {data['release_version']}")
+        else:
+            lines.append("**Release:** Unreleased")
 
         lines.append("")  # Empty line
 
-        # Metadata Section
-        if "metadata" in data:
-            lines.extend(self._format_metadata(data["metadata"]))
+        # Modules Section
+        if "modules" in data:
+            lines.extend(self._format_modules(data["modules"]))
 
-        # Code Changes Section
+        # Files Changed and Statistics
         if "code_changes" in data:
-            lines.extend(self._format_code_changes(data["code_changes"]))
+            lines.extend(self._format_simplified_code_changes(data["code_changes"]))
 
-        # Repository Info Section
-        if "repository_info" in data:
-            lines.extend(self._format_repository_info(data["repository_info"]))
+        # Labels
+        if "metadata" in data:
+            lines.extend(self._format_labels_only(data["metadata"]))
 
-        # Reviews Section
-        if "reviews" in data:
-            lines.extend(self._format_reviews(data["reviews"]))
-
-        # AI Summaries Section
+        # AI Summaries Section (All Personas)
         if "ai_summaries" in data:
             lines.extend(self._format_ai_summaries(data["ai_summaries"]))
 
@@ -215,6 +222,85 @@ class MarkdownFormatter(BaseFormatter):
 
         return lines
 
+    def _format_modules(self, modules_data: dict[str, Any]) -> list[str]:
+        """Format modules section."""
+        lines = ["## 📦 Modules Analysis", ""]
+
+        # Handle the case where modules_data might be the processed result
+        if "modules" in modules_data:
+            modules = modules_data["modules"]
+            if isinstance(modules, list) and modules:
+                lines.append(f"### Modules Found ({len(modules)})")
+                for module in modules:
+                    if isinstance(module, dict):
+                        name = module.get("name", "Unknown")
+                        mod_type = module.get("type", "unknown")
+                        action = module.get("action", "")
+
+                        # Format based on available info
+                        if action and action != "modified":
+                            lines.append(f"- **{name}** ({mod_type}) - {action}")
+                        else:
+                            lines.append(f"- **{name}** ({mod_type})")
+                    else:
+                        lines.append(f"- {module}")
+                lines.append("")
+
+        # Show total modules if available
+        if "total_modules" in modules_data:
+            lines.append(f"**Total Modules:** {modules_data['total_modules']}")
+
+        # Show repository type if available
+        if "repository_type" in modules_data:
+            lines.append(f"**Repository Type:** {modules_data['repository_type']}")
+
+        # Show primary module type
+        if "primary_type" in modules_data:
+            lines.append(f"**Primary Module Type:** {modules_data['primary_type']}")
+
+        # Show changes summary if available
+        if "changes_summary" in modules_data:
+            lines.append(f"**Summary:** {modules_data['changes_summary']}")
+
+        # Show adapter changes for JS repos
+        if "adapter_changes" in modules_data:
+            lines.append("")
+            lines.append("### Adapter Changes")
+            for adapter_type, count in modules_data["adapter_changes"].items():
+                lines.append(f"- {adapter_type.replace('_', ' ').title()}: {count}")
+
+        # Show new adapters if any
+        if "new_adapters" in modules_data:
+            lines.append("")
+            lines.append("### New Adapters")
+            for adapter in modules_data["new_adapters"]:
+                lines.append(f"- **{adapter['name']}** ({adapter['type']})")
+
+        # Show important modules if any
+        if "important_modules" in modules_data:
+            lines.append("")
+            lines.append("### Important Module Changes")
+            for module in modules_data["important_modules"]:
+                lines.append(f"- {module}")
+
+        # Show bidder changes for server repos
+        if "bidder_changes" in modules_data:
+            lines.append("")
+            lines.append("### Bidder Changes")
+            for bidder in modules_data["bidder_changes"]:
+                lines.append(f"- **{bidder['name']}** - {bidder['action']}")
+
+        # Show component changes for mobile repos
+        if "component_changes" in modules_data:
+            lines.append("")
+            lines.append("### Component Changes")
+            for component, count in modules_data["component_changes"].items():
+                if count > 0:
+                    lines.append(f"- {component.title()}: {count}")
+
+        lines.append("")
+        return lines
+
     def _format_ai_summaries(self, ai_summaries: dict[str, Any]) -> list[str]:
         """Format AI-generated summaries section."""
         lines = ["## 🤖 AI-Generated Summaries", ""]
@@ -222,7 +308,7 @@ class MarkdownFormatter(BaseFormatter):
         # Executive Summary
         if "executive_summary" in ai_summaries:
             exec_summary = ai_summaries["executive_summary"]
-            summary_text = exec_summary.get('summary', 'No summary available')
+            summary_text = exec_summary.get("summary", "No summary available")
             if summary_text != "[Not requested]":
                 lines.append("### Executive Summary")
                 lines.append(f"{summary_text}")
@@ -231,7 +317,7 @@ class MarkdownFormatter(BaseFormatter):
         # Product Manager Summary
         if "product_summary" in ai_summaries:
             product_summary = ai_summaries["product_summary"]
-            summary_text = product_summary.get('summary', 'No summary available')
+            summary_text = product_summary.get("summary", "No summary available")
             if summary_text != "[Not requested]":
                 lines.append("### Product Manager Summary")
                 lines.append(f"{summary_text}")
@@ -240,7 +326,7 @@ class MarkdownFormatter(BaseFormatter):
         # Developer Summary
         if "developer_summary" in ai_summaries:
             dev_summary = ai_summaries["developer_summary"]
-            summary_text = dev_summary.get('summary', 'No summary available')
+            summary_text = dev_summary.get("summary", "No summary available")
             if summary_text != "[Not requested]":
                 lines.append("### Technical Developer Summary")
                 lines.append(f"{summary_text}")
@@ -249,7 +335,7 @@ class MarkdownFormatter(BaseFormatter):
         # Code Review
         if "reviewer_summary" in ai_summaries:
             reviewer_summary = ai_summaries["reviewer_summary"]
-            summary_text = reviewer_summary.get('summary', 'No summary available')
+            summary_text = reviewer_summary.get("summary", "No summary available")
             if summary_text != "[Not requested]":
                 lines.append("### Code Review")
                 lines.append(f"{summary_text}")
@@ -289,6 +375,68 @@ class MarkdownFormatter(BaseFormatter):
                 lines.append(f"- {component}: {duration:.3f}s")
 
         lines.append("")
+        return lines
+
+    def _format_simplified_code_changes(
+        self, code_changes: dict[str, Any]
+    ) -> list[str]:
+        """Format simplified code changes section with only files and statistics."""
+        lines = ["## 💻 Files Changed", ""]
+
+        # Get file count and stats
+        stats = code_changes.get("change_stats", {})
+        file_count = stats.get("changed_files", 0)
+
+        # Change Statistics
+        if stats:
+            lines.append("### Change Statistics")
+            lines.append(f"- **Total Changes:** {stats.get('total_changes', 0)} lines")
+            lines.append(f"- **Additions:** +{stats.get('total_additions', 0)}")
+            lines.append(f"- **Deletions:** -{stats.get('total_deletions', 0)}")
+            lines.append(f"- **Files Changed:** {file_count}")
+            lines.append("")
+
+        # List of files changed
+        if "file_analysis" in code_changes:
+            file_analysis = code_changes["file_analysis"]
+
+            # Show actual files if available
+            if "changed_files" in file_analysis and file_analysis["changed_files"]:
+                lines.append("### Files")
+                for file_path in file_analysis["changed_files"]:
+                    lines.append(f"- `{file_path}`")
+                lines.append("")
+
+            # File Type Breakdown
+            if "file_types" in file_analysis and file_analysis["file_types"]:
+                lines.append("### File Types")
+                for file_type, count in file_analysis["file_types"].items():
+                    lines.append(
+                        f"- **{file_type}:** {count} file{'s' if count > 1 else ''}"
+                    )
+                lines.append("")
+
+        return lines
+
+    def _format_labels_only(self, metadata: dict[str, Any]) -> list[str]:
+        """Format labels section without quality metrics."""
+        lines = []
+
+        # Label Analysis
+        if "label_analysis" in metadata:
+            labels = metadata["label_analysis"]
+            lines.append(f"## 🏷️ Labels ({labels.get('total_count', 0)})")
+
+            if categorized := labels.get("categorized", {}):
+                for category, label_list in categorized.items():
+                    if label_list:
+                        lines.append(f"- **{category}:** {', '.join(label_list)}")
+
+            if uncategorized := labels.get("uncategorized", []):
+                lines.append(f"- **Other:** {', '.join(uncategorized)}")
+
+            lines.append("")
+
         return lines
 
     def get_file_extension(self) -> str:

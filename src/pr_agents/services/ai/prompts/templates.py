@@ -115,6 +115,43 @@ Full Code Diff Analysis:
 Technical Summary:"""
 
 # Specialized templates for specific repository types
+REVIEWER_TEMPLATE = """You are providing a code review summary for a software engineer.
+Repository: {repo_name} ({repo_type})
+
+PR Title: {pr_title}
+Base Branch: {base_branch}
+Head Branch: {head_branch}
+
+Technical Overview:
+- Files Changed: {file_count}
+- Lines Added: {additions}
+- Lines Deleted: {deletions}
+- Primary Language: {primary_language}
+
+Repository Context:
+{repo_context}
+
+Code Patterns Detected:
+{code_patterns}
+
+Provide a reviewer-focused summary (3-5 sentences) that includes:
+- Key areas that need attention during review
+- Potential risks or concerns
+- Test coverage assessment
+- Compliance with coding standards
+- Security or performance considerations
+
+Guidelines:
+- Focus on what reviewers should examine closely
+- Highlight any potential issues or improvements
+- Be constructive and specific
+- Mention positive aspects as well
+
+Full Code Diff Analysis:
+{full_diff_analysis}
+
+Reviewer Summary:"""
+
 PREBID_ADAPTER_TEMPLATE = """You are analyzing a new Prebid adapter implementation.
 Adapter Name: {adapter_name}
 Repository: {repo_name}

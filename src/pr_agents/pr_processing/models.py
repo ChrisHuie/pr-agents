@@ -105,6 +105,7 @@ class PRData(BaseModel):
     code_changes: CodeChanges | None = None
     repository_info: RepositoryInfo | None = None
     review_data: ReviewData | None = None
+    modules: dict[str, Any] | None = None  # Module extraction data
 
 
 class ProcessingResult(BaseModel):

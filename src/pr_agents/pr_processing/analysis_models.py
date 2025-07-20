@@ -98,6 +98,7 @@ class FileAnalysis:
     file_sizes: dict[str, int] = field(default_factory=dict)
     file_statuses: dict[str, int] = field(default_factory=dict)
     largest_file_changes: int = 0
+    changed_files: list[str] = field(default_factory=list)
 
 
 @dataclass

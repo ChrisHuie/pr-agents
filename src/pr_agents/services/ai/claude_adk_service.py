@@ -10,8 +10,8 @@ from src.pr_agents.logging_config import (
     log_processing_step,
 )
 from src.pr_agents.pr_processing.analysis_models import AISummaries, PersonaSummary
-from src.pr_agents.services.agents.claude_orchestrator import ClaudeAgentOrchestrator
 from src.pr_agents.pr_processing.models import CodeChanges
+from src.pr_agents.services.agents.claude_orchestrator import ClaudeAgentOrchestrator
 from src.pr_agents.services.ai.base import BaseAIService
 
 
@@ -49,16 +49,20 @@ class ClaudeADKService(BaseAIService):
 
         try:
             start_time = datetime.now()
-            
+
             # Prepare context for agents
-            context = self._prepare_agent_context(code_changes, repo_context, pr_metadata)
+            context = self._prepare_agent_context(
+                code_changes, repo_context, pr_metadata
+            )
 
             # Run agents concurrently for all personas
             log_processing_step("Running Claude agents for all personas")
             summaries = await self.orchestrator.generate_summaries(context)
 
             # Calculate generation time
-            generation_time_ms = int((datetime.now() - start_time).total_seconds() * 1000)
+            generation_time_ms = int(
+                (datetime.now() - start_time).total_seconds() * 1000
+            )
 
             # Create AISummaries object
             result = AISummaries(
@@ -89,7 +93,9 @@ class ClaudeADKService(BaseAIService):
                 model_used="claude-adk-claude-3-opus",
                 generation_timestamp=datetime.now(),
                 cached=False,
-                total_tokens=int(sum(s.confidence * 100 for s in summaries.values())),  # Approximate
+                total_tokens=int(
+                    sum(s.confidence * 100 for s in summaries.values())
+                ),  # Approximate
                 generation_time_ms=generation_time_ms,
             )
 
@@ -103,10 +109,10 @@ class ClaudeADKService(BaseAIService):
             return self._create_error_summaries(str(e))
 
     def _prepare_agent_context(
-        self, 
-        code_changes: CodeChanges, 
+        self,
+        code_changes: CodeChanges,
         repo_context: dict[str, Any],
-        pr_metadata: dict[str, Any]
+        pr_metadata: dict[str, Any],
     ) -> dict[str, Any]:
         """Prepare context for Claude agents.
 
@@ -130,15 +136,17 @@ class ClaudeADKService(BaseAIService):
                 category = "documentation"
             else:
                 category = "core"
-                
+
             if category not in change_categories:
                 change_categories[category] = []
             change_categories[category].append(diff.filename)
-        
+
         # Check if any test files were modified
-        has_tests = any("test" in diff.filename.lower() or "spec" in diff.filename.lower() 
-                       for diff in code_changes.file_diffs)
-        
+        has_tests = any(
+            "test" in diff.filename.lower() or "spec" in diff.filename.lower()
+            for diff in code_changes.file_diffs
+        )
+
         context = {
             "pr_title": pr_metadata.get("title", ""),
             "pr_description": pr_metadata.get("body", ""),
@@ -208,13 +216,15 @@ class ClaudeADKService(BaseAIService):
         """
         try:
             # Check if orchestrator is initialized and has agents
-            has_orchestrator = hasattr(self, 'orchestrator') and self.orchestrator is not None
-            
+            has_orchestrator = (
+                hasattr(self, "orchestrator") and self.orchestrator is not None
+            )
+
             if has_orchestrator:
                 # Check if API key is configured
                 api_key_valid = self.orchestrator.validate_api_key()
                 agent_count = len(self.orchestrator.agents)
-                
+
                 return {
                     "service": "claude_adk_service",
                     "healthy": has_orchestrator and api_key_valid and agent_count == 3,
@@ -230,7 +240,7 @@ class ClaudeADKService(BaseAIService):
                     "error": "Orchestrator not initialized",
                     "provider": "claude-adk",
                 }
-                
+
         except Exception as e:
             return {
                 "service": "claude_adk_service",

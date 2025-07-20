@@ -87,7 +87,11 @@ class TestClaudeADKService:
 
     @pytest.mark.asyncio
     async def test_generate_summaries_success(
-        self, claude_adk_service, sample_code_changes, sample_repo_context, sample_pr_metadata
+        self,
+        claude_adk_service,
+        sample_code_changes,
+        sample_repo_context,
+        sample_pr_metadata,
     ):
         """Test successful summary generation."""
         # Mock the orchestrator's generate_summaries method
@@ -128,7 +132,11 @@ class TestClaudeADKService:
 
     @pytest.mark.asyncio
     async def test_generate_summaries_with_error(
-        self, claude_adk_service, sample_code_changes, sample_repo_context, sample_pr_metadata
+        self,
+        claude_adk_service,
+        sample_code_changes,
+        sample_repo_context,
+        sample_pr_metadata,
     ):
         """Test summary generation with error handling."""
         # Mock the orchestrator to raise an exception
@@ -150,7 +158,11 @@ class TestClaudeADKService:
         assert result.total_tokens == 0
 
     def test_prepare_agent_context(
-        self, claude_adk_service, sample_code_changes, sample_repo_context, sample_pr_metadata
+        self,
+        claude_adk_service,
+        sample_code_changes,
+        sample_repo_context,
+        sample_pr_metadata,
     ):
         """Test context preparation for agents."""
         context = claude_adk_service._prepare_agent_context(

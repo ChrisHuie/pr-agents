@@ -5,4 +5,9 @@ from .executive import ExecutiveSummaryAgent
 from .product import ProductSummaryAgent
 from .reviewer import ReviewerSummaryAgent
 
-__all__ = ["ExecutiveSummaryAgent", "ProductSummaryAgent", "DeveloperSummaryAgent", "ReviewerSummaryAgent"]
+__all__ = [
+    "ExecutiveSummaryAgent",
+    "ProductSummaryAgent",
+    "DeveloperSummaryAgent",
+    "ReviewerSummaryAgent",
+]

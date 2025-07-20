@@ -128,6 +128,9 @@ class CodeProcessor(BaseProcessor):
             # Status tracking
             statuses[status] = statuses.get(status, 0) + 1
 
+        # Extract list of changed files
+        changed_files = [f.get("filename", "") for f in file_diffs if f.get("filename")]
+
         return FileAnalysis(
             file_types=file_types,
             file_sizes=file_sizes,
@@ -135,6 +138,7 @@ class CodeProcessor(BaseProcessor):
             largest_file_changes=max(
                 (f.get("changes", 0) for f in file_diffs), default=0
             ),
+            changed_files=changed_files,  # Add the list of files
         )
 
     def _analyze_code_patterns(

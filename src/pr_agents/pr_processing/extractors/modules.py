@@ -12,6 +12,8 @@ from src.pr_agents.logging_config import (
 )
 from src.pr_agents.pr_processing.extractors.base import BaseExtractor
 
+from .module_detectors import ModuleDetectorRegistry
+
 
 class ModuleExtractor(BaseExtractor):
     """Extracts module structure and relationships from repositories.
@@ -29,6 +31,7 @@ class ModuleExtractor(BaseExtractor):
         super().__init__(github_client)
         self.module_patterns: dict[str, list[str]] = {}
         self.repo_config: dict[str, Any] | None = None
+        self.detector_registry = ModuleDetectorRegistry()
 
     @property
     def component_name(self) -> str:
@@ -44,6 +47,9 @@ class ModuleExtractor(BaseExtractor):
         self.repo_config = config
         self.module_patterns = config.get("module_locations", {})
         logger.debug(f"Module patterns loaded: {list(self.module_patterns.keys())}")
+
+        # Load config into detector registry
+        self.detector_registry.load_repository_config(config)
 
     def extract(self, pr_data: Any) -> dict[str, Any]:
         """Extract module information from PR data.
@@ -131,87 +137,56 @@ class ModuleExtractor(BaseExtractor):
         if self._is_test_file(file_path):
             return None
 
-        # Try to match against configured patterns
-        for module_type, config in self.module_patterns.items():
-            paths = config.get("paths", [])
-            naming_pattern = config.get("naming_pattern", "")
+        # Extract module name from path
+        parts = file_path.split("/")
+        module_name = None
+        in_module_dir = False
 
-            for path_pattern in paths:
-                if self._matches_pattern(file_path, path_pattern):
-                    module_name = self._extract_module_name(file_path, naming_pattern)
-                    if module_name:
-                        return {
-                            "name": module_name,
-                            "type": module_type,
-                            "path": file_path,
-                            "category": self._determine_category(module_type),
-                        }
+        # Look for module in common locations
+        for i, part in enumerate(parts):
+            if part in ["modules", "src", "lib", "libraries", "adapters"]:
+                in_module_dir = True
+                if i + 1 < len(parts):
+                    filename = parts[i + 1]
+                    # Remove extension
+                    module_name = filename.rsplit(".", 1)[0]
+                    break
 
-        # Check for generic module patterns
-        if "module" in file_path.lower() or "/src/" in file_path:
-            parts = file_path.split("/")
-            module_name = None
+        # Only consider standalone files if they have module-like naming patterns
+        if not module_name and not in_module_dir:
+            filename = parts[-1] if parts else ""
+            if filename and not filename.startswith("."):
+                # Check if filename suggests it's a module
+                base_name = filename.rsplit(".", 1)[0]
+                # Only consider files with module-like suffixes
+                module_suffixes = [
+                    "BidAdapter",
+                    "AnalyticsAdapter",
+                    "RtdProvider",
+                    "RtdModule",
+                    "IdSystem",
+                    "UserModule",
+                    "VideoModule",
+                    "Module",
+                    "Adapter",
+                ]
+                if any(base_name.endswith(suffix) for suffix in module_suffixes):
+                    module_name = base_name
 
-            # Extract module name from path
-            for i, part in enumerate(parts):
-                if part in ["modules", "src", "lib", "libraries"]:
-                    if i + 1 < len(parts):
-                        module_name = parts[i + 1].replace(".js", "").replace(".py", "")
-                        break
+        if module_name:
+            # Use detector registry to determine module type
+            detection_result = self.detector_registry.detect_module_type(
+                module_name, file_path
+            )
 
-            if module_name:
-                return {
-                    "name": module_name,
-                    "type": "generic",
-                    "path": file_path,
-                    "category": "utility",
-                }
+            return {
+                "name": module_name,
+                "type": detection_result["type"],
+                "path": file_path,
+                "category": detection_result["category"],
+            }
 
         return None
-
-    def _matches_pattern(self, file_path: str, pattern: str) -> bool:
-        """Check if file path matches a pattern.
-
-        Args:
-            file_path: The file path to check
-            pattern: The pattern to match (supports * wildcards)
-
-        Returns:
-            True if matches
-        """
-        import fnmatch
-
-        return fnmatch.fnmatch(file_path, pattern)
-
-    def _extract_module_name(self, file_path: str, naming_pattern: str) -> str | None:
-        """Extract module name from file path based on naming pattern.
-
-        Args:
-            file_path: The file path
-            naming_pattern: Pattern like "endsWith('BidAdapter')"
-
-        Returns:
-            Module name or None
-        """
-        import os
-
-        filename = os.path.basename(file_path)
-        name_without_ext = os.path.splitext(filename)[0]
-
-        # Handle endsWith pattern
-        if "endsWith" in naming_pattern:
-            suffix = naming_pattern.split("'")[1]
-            if name_without_ext.endswith(suffix):
-                return name_without_ext
-
-        # Handle startsWith pattern
-        elif "startsWith" in naming_pattern:
-            prefix = naming_pattern.split("'")[1]
-            if name_without_ext.startswith(prefix):
-                return name_without_ext
-
-        # Default: return filename without extension
-        return name_without_ext
 
     def _is_test_file(self, file_path: str) -> bool:
         """Check if file is a test file.
@@ -256,9 +231,12 @@ class ModuleExtractor(BaseExtractor):
         # Map types to categories
         category_map = {
             "bid_adapter": "adapter",
-            "analytics_adapter": "adapter",
-            "rtd_provider": "provider",
+            "analytics_adapter": "analytics",
+            "rtd_provider": "rtd",
+            "rtd_module": "rtd",
             "id_system": "identity",
+            "user_module": "user",
+            "video_module": "video",
             "core": "core",
             "library": "utility",
             "generic": "utility",

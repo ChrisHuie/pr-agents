@@ -27,8 +27,12 @@ class ADKAIService(BaseAIService):
 
         self.model = model
         self.use_batch_context = use_batch_context
-        self.orchestrator = SummaryAgentOrchestrator(model=model, use_batch_context=use_batch_context)
-        logger.info(f"Initialized ADK AI service with model: {model}, batch_context: {use_batch_context}")
+        self.orchestrator = SummaryAgentOrchestrator(
+            model=model, use_batch_context=use_batch_context
+        )
+        logger.info(
+            f"Initialized ADK AI service with model: {model}, batch_context: {use_batch_context}"
+        )
 
     async def generate_summaries(
         self,
@@ -85,16 +89,16 @@ class ADKAIService(BaseAIService):
         logger.info(f"ADK summary generation completed in {total_time:.2f}s")
 
         return summaries
-    
+
     def start_batch(self, repo_url: str) -> None:
         """Start batch processing for a repository.
-        
+
         Args:
             repo_url: Repository URL for the batch
         """
         if self.use_batch_context:
             self.orchestrator.start_batch(repo_url)
-    
+
     def end_batch(self) -> None:
         """End the current batch processing."""
         if self.use_batch_context:

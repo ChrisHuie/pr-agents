@@ -64,12 +64,12 @@ class BatchCoordinator(BaseCoordinator):
 
         results = {}
         total_start = time.time()
-        
+
         # Check if AI summaries are requested and all PRs are from same repo
         has_ai_processor = run_processors and "ai_summaries" in run_processors
         repo_url = None
         same_repo = True
-        
+
         if has_ai_processor and pr_urls:
             # Extract repository URL from first PR
             first_pr = pr_urls[0]
@@ -77,19 +77,21 @@ class BatchCoordinator(BaseCoordinator):
                 parts = first_pr.split("/")
                 if len(parts) >= 5:
                     repo_url = f"https://github.com/{parts[3]}/{parts[4]}"
-                    
+
             # Check if all PRs are from same repo
             for pr_url in pr_urls[1:]:
                 if repo_url and repo_url not in pr_url:
                     same_repo = False
                     break
-        
+
         # Start batch context if applicable
         if has_ai_processor and same_repo and repo_url:
             logger.info(f"Detected batch from same repository: {repo_url}")
             # Notify AI processor about batch start
             ai_processor = self.component_manager.get_processor("ai_summaries")
-            if hasattr(ai_processor, 'ai_service') and hasattr(ai_processor.ai_service, 'start_batch'):
+            if hasattr(ai_processor, "ai_service") and hasattr(
+                ai_processor.ai_service, "start_batch"
+            ):
                 ai_processor.ai_service.start_batch(repo_url)
                 logger.info("Started batch context for AI processing")
 
@@ -112,7 +114,9 @@ class BatchCoordinator(BaseCoordinator):
         # End batch context if it was started
         if has_ai_processor and same_repo and repo_url:
             ai_processor = self.component_manager.get_processor("ai_summaries")
-            if hasattr(ai_processor, 'ai_service') and hasattr(ai_processor.ai_service, 'end_batch'):
+            if hasattr(ai_processor, "ai_service") and hasattr(
+                ai_processor.ai_service, "end_batch"
+            ):
                 ai_processor.ai_service.end_batch()
                 logger.info("Ended batch context for AI processing")
 

@@ -91,6 +91,10 @@ class SinglePRCoordinator(BaseCoordinator):
             logger.error(f"❌ Failed to retrieve PR from URL: {pr_url}")
             raise ValueError(f"Could not retrieve PR from URL: {pr_url}")
 
+        # Configure components for this repository
+        repo_full_name = pr_obj.base.repo.full_name
+        self.component_manager.configure_for_repository(repo_full_name)
+
         # Determine which extractors to use
         if components is None:
             extractors = self.component_manager.get_extractors()
@@ -124,6 +128,8 @@ class SinglePRCoordinator(BaseCoordinator):
                     pr_data.repository_info = component_data
                 elif name == "reviews" and component_data:
                     pr_data.review_data = component_data
+                elif name == "modules" and component_data:
+                    pr_data.modules = component_data
 
                 logger.success(f"✅ {name} extraction complete ({extraction_time}ms)")
 
