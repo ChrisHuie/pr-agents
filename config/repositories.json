@@ -2,11 +2,18 @@
   "$schema": "./schema/repository.schema.json",
   "description": "Master configuration that imports all repository configurations",
   "repositories": [
-    "./repositories/prebid/prebid-js.json",
-    "./repositories/prebid/prebid-server-go.json",
-    "./repositories/prebid/prebid-server-java.json",
-    "./repositories/prebid/prebid-mobile-android.json",
-    "./repositories/prebid/prebid-mobile-ios.json",
-    "./repositories/prebid/prebid.github.io.json"
-  ]
+    "./prebid/prebid-js/config.json",
+    "./prebid/prebid-server/config-go.json",
+    "./prebid/prebid-server/config-java.json",
+    "./prebid/prebid-mobile-android/config.json",
+    "./prebid/prebid-mobile-ios/config.json",
+    "./prebid/prebid-docs/config.json"
+  ],
+  "context_files": {
+    "prebid/Prebid.js": "./prebid-context/prebid-js.md",
+    "prebid/prebid-server": "./prebid-context/prebid-server-go.md",
+    "prebid/prebid-server-java": "./prebid-context/prebid-server-java.md",
+    "prebid/prebid-mobile-ios": "./prebid-context/prebid-mobile-ios.md",
+    "prebid/prebid-mobile-android": "./prebid-context/prebid-mobile-android.md"
+  }
 }
