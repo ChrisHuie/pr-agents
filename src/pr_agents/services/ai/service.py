@@ -574,3 +574,43 @@ class AIService(BaseAIService):
             }
             for persona, s in stats.items()
         }
+
+    def start_batch(self, repo_url: str) -> None:
+        """Start batch processing for a repository.
+
+        This method is called when processing multiple PRs from the same repository.
+        It allows the AI service to optimize by preloading context and maintaining
+        it in cache for the duration of the batch.
+
+        Args:
+            repo_url: Repository URL for the batch
+        """
+        # Store the batch repository URL
+        self._batch_repo_url = repo_url
+        self._batch_start_time = datetime.now()
+
+        # Preload context if we have a context manager available
+        if hasattr(self, "context_manager") and self.context_manager:
+            try:
+                # This will cache the context for subsequent calls
+                self.context_manager.get_full_context(repo_url)
+                logger.info(f"Preloaded context for batch processing of {repo_url}")
+            except Exception as e:
+                logger.warning(f"Could not preload context for batch: {e}")
+
+        logger.info(f"Started batch processing for repository: {repo_url}")
+
+    def end_batch(self) -> None:
+        """End batch processing and clear batch-specific state."""
+        if hasattr(self, "_batch_repo_url"):
+            batch_duration = (datetime.now() - self._batch_start_time).total_seconds()
+            logger.info(
+                f"Ended batch processing for {self._batch_repo_url} "
+                f"(duration: {batch_duration:.1f}s)"
+            )
+
+            # Clear batch state
+            delattr(self, "_batch_repo_url")
+            delattr(self, "_batch_start_time")
+        else:
+            logger.debug("No active batch to end")

@@ -14,7 +14,7 @@ class ClaudeProvider(BaseLLMProvider):
     def __init__(
         self,
         api_key: str,
-        model_name: str = "claude-3-sonnet-20240229",
+        model_name: str = "claude-3-opus-20240229",
         **kwargs,
     ):
         """Initialize Claude provider.

@@ -233,8 +233,9 @@ class ComponentManager:
         # Special handling for AI summaries processor
         if component_name == "ai_summaries":
             # AI processor needs multiple components
-            # Extract repo URL from metadata if available
+            # Extract repo URL and PR URL from metadata if available
             repo_url = ""
+            pr_url = ""
             if pr_data.metadata:
                 # Extract repository URL from PR URL
                 # Handle both object and dict cases
@@ -242,9 +243,8 @@ class ComponentManager:
                     pr_url = pr_data.metadata.url
                 elif isinstance(pr_data.metadata, dict) and "url" in pr_data.metadata:
                     pr_url = pr_data.metadata["url"]
-                else:
-                    pr_url = ""
-                if "github.com" in pr_url:
+
+                if pr_url and "github.com" in pr_url:
                     # Convert PR URL to repo URL
                     # https://github.com/owner/repo/pull/123 -> https://github.com/owner/repo
                     parts = pr_url.split("/")
@@ -257,6 +257,7 @@ class ComponentManager:
                 "code": pr_data.code_changes,
                 "metadata": pr_data.metadata,
                 "repo_url": repo_url,
+                "pr_url": pr_url,  # Include PR URL for tracking
             }
 
         data = component_map.get(component_name)

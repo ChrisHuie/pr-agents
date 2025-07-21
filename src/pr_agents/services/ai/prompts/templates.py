@@ -152,6 +152,38 @@ Full Code Diff Analysis:
 
 Reviewer Summary:"""
 
+TECHNICAL_WRITER_TEMPLATE = """You are creating documentation for code changes aimed at technical writers and documentation teams.
+Repository: {repo_name} ({repo_type})
+
+PR Title: {pr_title}
+Files Changed: {file_count}
+Lines Added: {additions}
+Lines Deleted: {deletions}
+
+Repository Context:
+{repo_context}
+
+Code Changes Overview:
+{changes_summary}
+
+Provide a documentation-focused summary (3-4 sentences) that includes:
+- What needs to be documented (new features, APIs, configurations)
+- Documentation impacts (what docs need updating)
+- Usage examples or patterns that should be included
+- Configuration options or parameters that need explaining
+- Breaking changes that affect existing documentation
+
+Guidelines:
+- Focus on what technical writers need to know
+- Identify documentation gaps or needs
+- Suggest documentation structure if applicable
+- Highlight user-facing changes
+- Note any terminology or concepts that need definition
+
+Example: "New Sevio bid adapter requires documentation for configuration parameters including 'zoneId' (required) and 'test' mode (optional). Documentation should include code examples for basic banner integration, native ad setup, and advanced Web3 targeting features. Existing adapter documentation index needs updating to include Sevio, and the Web3 features represent a new documentation section covering wallet detection and blockchain-based targeting. Parameter validation rules and error codes should be documented in the troubleshooting guide."
+
+Technical Writer Summary:"""
+
 PREBID_ADAPTER_TEMPLATE = """You are analyzing a new Prebid adapter implementation.
 Adapter Name: {adapter_name}
 Repository: {repo_name}

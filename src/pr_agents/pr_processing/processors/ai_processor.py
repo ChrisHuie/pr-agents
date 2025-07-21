@@ -41,6 +41,7 @@ class AIProcessor(BaseProcessor):
         - code: Extracted code change data
         - metadata: PR metadata (title, description, etc.)
         - repo_url: Repository URL for context
+        - pr_url: PR URL for tracking
 
         Args:
             component_data: Dictionary containing extracted component data
@@ -53,7 +54,10 @@ class AIProcessor(BaseProcessor):
             code_data = component_data.get("code")
             metadata = component_data.get("metadata", {})
             repo_url = component_data.get("repo_url", "")
-            logger.debug(f"AI Processor received repo_url: {repo_url}")
+            pr_url = component_data.get("pr_url", "")
+            logger.debug(
+                f"AI Processor received repo_url: {repo_url}, pr_url: {pr_url}"
+            )
 
             if not code_data:
                 return ProcessingResult(
@@ -63,8 +67,18 @@ class AIProcessor(BaseProcessor):
                     errors=["No code data provided for AI analysis"],
                 )
 
+            # Convert dict to CodeChanges object if needed
+            from ..models import CodeChanges
+
+            if isinstance(code_data, dict):
+                code_data_obj = CodeChanges(**code_data)
+            else:
+                code_data_obj = code_data
+
             # Get enriched repository context using unified manager
-            repo_context = self._get_enriched_repo_context(repo_url, code_data)
+            repo_context = self._get_enriched_repo_context(
+                repo_url, code_data_obj, pr_url
+            )
 
             # Prepare PR metadata
             pr_metadata = {
@@ -73,14 +87,6 @@ class AIProcessor(BaseProcessor):
                 "base_branch": metadata.get("base", {}).get("ref", "main"),
                 "head_branch": metadata.get("head", {}).get("ref", "feature"),
             }
-
-            # Convert dict to CodeChanges object if needed
-            from ..models import CodeChanges
-
-            if isinstance(code_data, dict):
-                code_data_obj = CodeChanges(**code_data)
-            else:
-                code_data_obj = code_data
 
             # Generate summaries (run async in sync context)
             logger.info(f"Generating AI summaries for PR: {pr_metadata.get('title')}")
@@ -136,23 +142,24 @@ class AIProcessor(BaseProcessor):
             return future.result()
 
     def _get_enriched_repo_context(
-        self, repo_url: str, code_data: dict[str, Any]
+        self, repo_url: str, code_data: Any, pr_url: str = ""
     ) -> dict[str, Any]:
         """Get enriched repository context using unified context manager.
 
         Args:
             repo_url: Repository URL
             code_data: Code change data
+            pr_url: PR URL for tracking
 
         Returns:
             Repository context dictionary optimized for AI
         """
-        # Get AI-optimized context from unified manager
-        context = self.context_manager.get_context_for_ai(repo_url)
+        # Get AI-optimized context from unified manager with tracking
+        context = self.context_manager.get_context_for_ai(repo_url, pr_url or None)
 
         # Add detected languages from actual file changes
-        if "file_diffs" in code_data:
-            languages = self._detect_languages(code_data["file_diffs"])
+        if hasattr(code_data, "file_diffs"):
+            languages = self._detect_languages(code_data.file_diffs)
             if languages:
                 # Override with detected languages as they're more accurate
                 context["primary_language"] = languages[0]
@@ -168,7 +175,7 @@ class AIProcessor(BaseProcessor):
         return context
 
     def _analyze_change_context(
-        self, code_data: dict[str, Any], repo_context: dict[str, Any]
+        self, code_data: Any, repo_context: dict[str, Any]
     ) -> dict[str, Any]:
         """Analyze the change context based on repository knowledge.
 
@@ -186,9 +193,9 @@ class AIProcessor(BaseProcessor):
         }
 
         # Analyze files to detect patterns
-        if "file_diffs" in code_data:
-            for file_diff in code_data["file_diffs"]:
-                filename = file_diff.get("filename", "")
+        if hasattr(code_data, "file_diffs"):
+            for file_diff in code_data.file_diffs:
+                filename = file_diff.filename
 
                 # Check against module patterns if available
                 if "module_patterns" in repo_context:
@@ -357,7 +364,11 @@ class AIProcessor(BaseProcessor):
         language_counts = {}
 
         for diff in file_diffs:
-            filename = diff.get("filename", "").lower()
+            # Handle both dict and FileDiff object
+            if hasattr(diff, "filename"):
+                filename = diff.filename.lower()
+            else:
+                filename = diff.get("filename", "").lower()
 
             # Special case for files without extensions
             if "/" in filename:

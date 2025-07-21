@@ -1,17 +1,16 @@
 """
-Repository knowledge loader for enriching configurations.
+Repository knowledge loader for loading JSON configs from prebid directory.
 """
 
 import json
 from pathlib import Path
 from typing import Any
 
-import yaml
 from loguru import logger
 
 
 class RepositoryKnowledgeLoader:
-    """Loads and merges repository knowledge from multiple sources."""
+    """Loads repository configuration from JSON files in config/prebid/."""
 
     def __init__(self, config_dir: Path | str):
         """
@@ -21,145 +20,72 @@ class RepositoryKnowledgeLoader:
             config_dir: Path to configuration directory
         """
         self.config_dir = Path(config_dir)
-        self.json_config_dir = self.config_dir / "repositories"
-        self.yaml_knowledge_dir = self.config_dir / "repository-knowledge"
+        self.prebid_dir = self.config_dir / "prebid"
 
     def load_repository_config(self, repo_full_name: str) -> dict[str, Any]:
         """
-        Load repository configuration with knowledge enrichment.
+        Load repository configuration from JSON files.
 
         Args:
             repo_full_name: Full repository name (e.g., "prebid/Prebid.js")
 
         Returns:
-            Enriched repository configuration
+            Repository configuration from JSON
         """
-        # Normalize repo name for file paths
-        owner, repo = repo_full_name.split("/", 1)
+        # Handle different repo name formats
+        if "/" in repo_full_name:
+            owner, repo = repo_full_name.split("/", 1)
+        else:
+            # If no owner provided, assume prebid
+            owner = "prebid"
+            repo = repo_full_name
 
-        # Load base JSON configuration
-        json_path = (
-            self.json_config_dir / owner / f"{repo.lower().replace('.', '-')}.json"
-        )
-        config = self._load_json_config(json_path)
+        # Try different paths based on repo name
+        possible_paths = self._get_possible_config_paths(owner, repo)
 
-        # Load YAML knowledge
-        yaml_path = self.yaml_knowledge_dir / f"{repo.lower().replace('.', '-')}.yaml"
-        knowledge = self._load_yaml_knowledge(yaml_path)
+        for path in possible_paths:
+            if path.exists():
+                config = self._load_json_config(path)
+                if config:
+                    logger.debug(f"Loaded config for {repo_full_name} from {path}")
+                    return config
 
-        # Merge knowledge into config
-        if knowledge:
-            config = self._merge_knowledge(config, knowledge)
+        logger.debug(f"No config found for {repo_full_name}")
+        return {}
 
-        return config
+    def _get_possible_config_paths(self, owner: str, repo: str) -> list[Path]:
+        """Get possible paths for a repository config."""
+        paths = []
+
+        # Normalize repo name
+        normalized = repo.lower().replace(".", "-")
+
+        # Direct path: prebid/prebid-js/config.json
+        paths.append(self.prebid_dir / normalized / "config.json")
+
+        # Server variants: prebid/prebid-server/config-go.json
+        if "server" in normalized:
+            base_dir = self.prebid_dir / "prebid-server"
+            if "go" in normalized:
+                paths.append(base_dir / "config-go.json")
+            elif "java" in normalized:
+                paths.append(base_dir / "config-java.json")
+
+        # Mobile variants: prebid/prebid-mobile-ios/config.json
+        if "mobile" in normalized:
+            paths.append(self.prebid_dir / normalized / "config.json")
+
+        # Docs variant: prebid/prebid-docs/config.json
+        if "docs" in normalized:
+            paths.append(self.prebid_dir / "prebid-docs" / "config.json")
+
+        return paths
 
     def _load_json_config(self, path: Path) -> dict[str, Any]:
         """Load JSON configuration file."""
-        if not path.exists():
-            logger.warning(f"Configuration file not found: {path}")
-            return {}
-
         try:
-            with open(path) as f:
+            with open(path, encoding="utf-8") as f:
                 return json.load(f)
-        except json.JSONDecodeError as e:
-            logger.error(f"Error parsing JSON config {path}: {e}")
+        except (OSError, json.JSONDecodeError) as e:
+            logger.error(f"Error loading JSON config {path}: {e}")
             return {}
-
-    def _load_yaml_knowledge(self, path: Path) -> dict[str, Any]:
-        """Load YAML knowledge file."""
-        if not path.exists():
-            logger.debug(f"Knowledge file not found: {path}")
-            return {}
-
-        try:
-            with open(path) as f:
-                return yaml.safe_load(f)
-        except yaml.YAMLError as e:
-            logger.error(f"Error parsing YAML knowledge {path}: {e}")
-            return {}
-
-    def _merge_knowledge(
-        self, config: dict[str, Any], knowledge: dict[str, Any]
-    ) -> dict[str, Any]:
-        """
-        Merge knowledge into configuration.
-
-        Args:
-            config: Base configuration
-            knowledge: Knowledge to merge
-
-        Returns:
-            Merged configuration
-        """
-        # Add repository context
-        if "overview" in knowledge:
-            config["repository_context"] = {
-                "purpose": knowledge["overview"].get("purpose", ""),
-                "key_features": knowledge["overview"].get("key_features", []),
-                "architecture": knowledge["overview"].get("architecture", {}),
-            }
-
-        # Enhance module locations with examples and descriptions
-        if (
-            "directory_structure" in knowledge
-            and "modules" in knowledge["directory_structure"]
-        ):
-            modules_info = knowledge["directory_structure"]["modules"]
-
-            # Add pattern descriptions to module_locations
-            if "patterns" in modules_info and "module_locations" in config:
-                for pattern, description in modules_info["patterns"].items():
-                    # Map pattern to module type
-                    module_type = self._pattern_to_module_type(pattern)
-                    if module_type and module_type in config["module_locations"]:
-                        config["module_locations"][module_type][
-                            "description"
-                        ] = description
-
-        # Add code patterns
-        if "patterns" in knowledge:
-            config["code_patterns"] = knowledge["patterns"]
-
-        # Add common PR patterns
-        if "code_examples" in knowledge:
-            config["pr_patterns"] = self._extract_pr_patterns(
-                knowledge["code_examples"]
-            )
-
-        # Add testing requirements
-        if "testing" in knowledge:
-            config["testing_requirements"] = knowledge["testing"]
-
-        return config
-
-    def _pattern_to_module_type(self, pattern: str) -> str | None:
-        """Map file pattern to module type."""
-        pattern_map = {
-            "*BidAdapter.js": "bid_adapter",
-            "*AnalyticsAdapter.js": "analytics_adapter",
-            "*IdSystem.js": "id_system",
-            "*RtdProvider.js": "rtd_module",
-            "*UserModule.js": "user_module",
-            "*VideoModule.js": "video_module",
-        }
-        return pattern_map.get(pattern)
-
-    def _extract_pr_patterns(self, code_examples: dict[str, Any]) -> dict[str, Any]:
-        """Extract PR patterns from code examples."""
-        patterns = {}
-
-        for module_type, example_info in code_examples.items():
-            if isinstance(example_info, dict) and "description" in example_info:
-                patterns[module_type] = {
-                    "description": example_info["description"],
-                    "common_changes": [],
-                }
-
-                # Extract common patterns from the code example
-                if "code" in example_info:
-                    # This is where we could analyze the code to find patterns
-                    # For now, just note that we have an example
-                    patterns[module_type]["has_example"] = True
-
-        return patterns

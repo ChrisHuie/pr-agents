@@ -105,13 +105,24 @@ def analyze_release(args):
     # Save or display results
     if args.output:
         output_mgr = OutputManager()
-        output_path = output_mgr.save(results, args.output, args.format)
-        logger.info(f"Results saved to: {output_path}")
+
+        # Check if multi-file output is requested
+        if hasattr(args, "multi_file") and args.multi_file:
+            # Save with individual PR files
+            saved_files = output_mgr.save_release_with_individual_prs(
+                results, args.output, args.format
+            )
+            logger.info(f"Main file saved to: {saved_files['main']}")
+            logger.info(f"Created {len(saved_files['prs'])} individual PR files")
+        else:
+            # Save as single file
+            output_path = output_mgr.save(results, args.output, args.format)
+            logger.info(f"Results saved to: {output_path}")
     else:
         # Display summary
-        print(
-            f"\nAnalyzed {len(results.get('prs', []))} PRs in release {args.release_tag}"
-        )
+        batch_summary = results.get("batch_summary", {})
+        pr_count = batch_summary.get("total_prs", 0)
+        print(f"\nAnalyzed {pr_count} PRs in release {args.release_tag}")
 
 
 def analyze_unreleased(args):
@@ -293,6 +304,11 @@ Examples:
         choices=["markdown", "md", "json", "text", "txt"],
         default="markdown",
         help="Output format",
+    )
+    release_parser.add_argument(
+        "--multi-file",
+        action="store_true",
+        help="Create individual PR files with AI personas (markdown only)",
     )
     release_parser.add_argument("--ai", dest="ai_provider", help="Enable AI summaries")
     release_parser.add_argument(

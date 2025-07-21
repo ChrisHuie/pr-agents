@@ -32,25 +32,12 @@ class FilenameGenerator:
         elif isinstance(pr_number, str) and pr_number.startswith("#"):
             pr_number = pr_number[1:]
 
-        # Try to identify the main module/adapter from different sources
-        main_module = FilenameGenerator._identify_main_module(data)
-
-        # Generate filename parts
-        parts = []
-
+        # If we have a PR number, return just "pr{number}"
         if pr_number:
-            parts.append(f"PR{pr_number}")
+            return f"pr{pr_number}"
 
-        if main_module:
-            # Clean module name for filename
-            clean_module = re.sub(r"[^\w\-]", "", main_module)
-            parts.append(clean_module)
-
-        # If we have no specific parts, use a fallback
-        if not parts:
-            parts.append("analysis")
-
-        return "-".join(parts)
+        # If we have no PR number, use a fallback
+        return "analysis"
 
     @staticmethod
     def generate_release_filename(

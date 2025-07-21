@@ -2,6 +2,7 @@
 Output manager for coordinating different formatters.
 """
 
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Literal
 
@@ -233,3 +234,122 @@ class OutputManager:
                 seen_formatters.add(formatter_type)
 
         return unique_formats
+
+    def save_release_with_individual_prs(
+        self,
+        data: dict[str, Any],
+        output_dir: Path | str,
+        format_type: OutputFormat = "markdown",
+        batch_size: int = 5,
+        progress_callback: Callable | None = None,
+    ) -> dict[str, Path]:
+        """
+        Save release analysis with individual PR files.
+
+        Creates:
+        - Main file: {repo}_{release}.md with PRs grouped by tag
+        - Individual files: PR_{number}.md with all AI personas
+
+        Args:
+            data: Release analysis results with pr_results
+            output_dir: Directory to save files
+            format_type: Output format (currently only markdown supported)
+
+        Returns:
+            Dictionary with paths to main file and PR files
+        """
+        if format_type not in ["markdown", "md"]:
+            raise ValueError(
+                "Multi-file output currently only supports markdown format"
+            )
+
+        output_dir = Path(output_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        # Check if this is release data
+        if "pr_results" not in data or "batch_summary" not in data:
+            raise ValueError("Data does not appear to be release analysis results")
+
+        # Get repository and release info
+        repo_name = data.get("repository", "unknown_repo").replace("/", "_")
+        release_tag = data.get("release_tag", data.get("release_version", "unknown"))
+
+        # Create main release file with grouped format
+        from .formatters.base import FormatterConfig
+
+        main_config = FormatterConfig(grouped_by_tag=True)
+        main_formatter = MarkdownFormatter(config=main_config)
+
+        main_filename = f"{repo_name}_{release_tag}.md"
+        main_filepath = output_dir / main_filename
+
+        # Format and save main file
+        main_content = main_formatter.format(data)
+
+        # Enhance main content with links to individual PR files
+        enhanced_lines = []
+        for line in main_content.split("\n"):
+            # Look for PR entries and add link to individual file
+            if line.startswith("### PR #") and ": " in line:
+                # Extract PR number
+                pr_num_start = line.find("#") + 1
+                pr_num_end = line.find(":", pr_num_start)
+                pr_number = line[pr_num_start:pr_num_end]
+
+                # Add link to individual file
+                line += f" - [Full Details](./PR_{pr_number}.md)"
+            enhanced_lines.append(line)
+
+        # Save main file
+        with open(main_filepath, "w") as f:
+            f.write("\n".join(enhanced_lines))
+
+        logger.info(f"Saved main release file: {main_filepath}")
+
+        # Create individual PR files with AI personas focus
+        saved_files = {"main": main_filepath, "prs": []}
+
+        pr_config = FormatterConfig(
+            sections=["header", "ai_summaries", "code_changes", "metadata"],
+            include_metrics=False,
+        )
+        pr_formatter = MarkdownFormatter(config=pr_config)
+
+        # Process each PR
+        for pr_url, pr_data in data.get("pr_results", {}).items():
+            if pr_data.get("error"):
+                continue
+
+            # Get PR number
+            pr_number = pr_data.get("pr_number", "unknown")
+
+            # Create individual PR data structure
+            individual_pr_data = {
+                "pr_url": pr_url,
+                "pr_number": pr_number,
+                "repository": data.get("repository"),
+                "release_version": release_tag,
+            }
+
+            # Copy relevant sections from PR data
+            for key in [
+                "metadata",
+                "code_changes",
+                "ai_summaries",
+                "modules",
+                "reviews",
+            ]:
+                if key in pr_data:
+                    individual_pr_data[key] = pr_data[key]
+
+            # Format and save individual PR file
+            pr_filename = f"PR_{pr_number}.md"
+            pr_filepath = output_dir / pr_filename
+
+            pr_formatter.save_to_file(individual_pr_data, pr_filepath)
+
+            saved_files["prs"].append(pr_filepath)
+
+        logger.info(f"Saved {len(saved_files['prs'])} individual PR files")
+
+        return saved_files

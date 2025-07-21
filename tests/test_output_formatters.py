@@ -84,7 +84,7 @@ class TestMarkdownFormatter:
 
         # Check sections
         assert "## 📋 Metadata Analysis" in result
-        assert "## 💻 Code Changes Analysis" in result
+        assert "## 💻 Files Changed" in result
 
         # Check content
         assert "Title Quality: excellent (85/100)" in result

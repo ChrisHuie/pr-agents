@@ -1,0 +1,229 @@
+{
+  "repo_name": "prebid/Prebid.js",
+  "release_tag": "9.24.0",
+  "prs": [
+    {
+      "url": "https://github.com/prebid/Prebid.js/pull/12601",
+      "number": 12601,
+      "title": "Smarthub Bid Adapter : set skipPbsAliasing to false",
+      "author": "SmartHubSolutions",
+      "labels": [
+        "maintenance"
+      ],
+      "created_at": "2024-12-19T08:34:00+00:00",
+      "merged_at": "2024-12-19T12:01:58+00:00"
+    },
+    {
+      "url": "https://github.com/prebid/Prebid.js/pull/12594",
+      "number": 12594,
+      "title": "PBS Adapter: only include known bidders in eidpermissions",
+      "author": "dgirardi",
+      "labels": [
+        "maintenance"
+      ],
+      "created_at": "2024-12-18T16:26:33+00:00",
+      "merged_at": "2024-12-18T18:18:18+00:00"
+    },
+    {
+      "url": "https://github.com/prebid/Prebid.js/pull/12593",
+      "number": 12593,
+      "title": "AdPlayerPro Video Module : add PLCMT",
+      "author": "artemAdp",
+      "labels": [
+        "maintenance"
+      ],
+      "created_at": "2024-12-18T15:59:07+00:00",
+      "merged_at": "2024-12-19T17:36:03+00:00"
+    },
+    {
+      "url": "https://github.com/prebid/Prebid.js/pull/12590",
+      "number": 12590,
+      "title": "dfpAdServerVideo: set vconp (continuous playblack on) when playbackmethod contains 7",
+      "author": "dgirardi",
+      "labels": [
+        "bugfix"
+      ],
+      "created_at": "2024-12-17T15:26:26+00:00",
+      "merged_at": "2024-12-18T12:37:34+00:00"
+    },
+    {
+      "url": "https://github.com/prebid/Prebid.js/pull/12588",
+      "number": 12588,
+      "title": "AdMatic Bid Adapter : add yobee alias",
+      "author": "fatihkaya84",
+      "labels": [
+        "feature"
+      ],
+      "created_at": "2024-12-17T07:07:24+00:00",
+      "merged_at": "2024-12-19T13:42:42+00:00"
+    },
+    {
+      "url": "https://github.com/prebid/Prebid.js/pull/12587",
+      "number": 12587,
+      "title": "Bug fix: Export getProperties method",
+      "author": "vivekyadav15",
+      "labels": [
+        "bugfix"
+      ],
+      "created_at": "2024-12-17T07:05:13+00:00",
+      "merged_at": "2024-12-18T18:51:05+00:00"
+    },
+    {
+      "url": "https://github.com/prebid/Prebid.js/pull/12582",
+      "number": 12582,
+      "title": "Adf Bid Adapter: use common ortb2 data",
+      "author": "braizhas",
+      "labels": [
+        "maintenance"
+      ],
+      "created_at": "2024-12-16T13:29:52+00:00",
+      "merged_at": "2024-12-18T18:51:54+00:00"
+    },
+    {
+      "url": "https://github.com/prebid/Prebid.js/pull/12581",
+      "number": 12581,
+      "title": "AcuityAds Bid Adapter: add gvlid",
+      "author": "AcuityAdsIntegrations",
+      "labels": [
+        "maintenance"
+      ],
+      "created_at": "2024-12-16T12:55:53+00:00",
+      "merged_at": "2024-12-16T13:46:11+00:00"
+    },
+    {
+      "url": "https://github.com/prebid/Prebid.js/pull/12579",
+      "number": 12579,
+      "title": "Aniview Bid Adapter : use credentials in requests",
+      "author": "s-solodovnikov",
+      "labels": [
+        "maintenance"
+      ],
+      "created_at": "2024-12-16T08:23:15+00:00",
+      "merged_at": "2024-12-16T15:37:12+00:00"
+    },
+    {
+      "url": "https://github.com/prebid/Prebid.js/pull/12578",
+      "number": 12578,
+      "title": "Doceree AdManager Bid Adapter : maintainence",
+      "author": "Doceree-techStack",
+      "labels": [
+        "maintenance"
+      ],
+      "created_at": "2024-12-13T12:32:54+00:00",
+      "merged_at": "2024-12-19T17:59:07+00:00"
+    },
+    {
+      "url": "https://github.com/prebid/Prebid.js/pull/12577",
+      "number": 12577,
+      "title": "Integration example: Create id_lift_measurement.html",
+      "author": "patmmccann",
+      "labels": [
+        "feature"
+      ],
+      "created_at": "2024-12-12T18:46:41+00:00",
+      "merged_at": "2024-12-19T17:04:09+00:00"
+    },
+    {
+      "url": "https://github.com/prebid/Prebid.js/pull/12559",
+      "number": 12559,
+      "title": "adtelligent bid adapter: add new allias",
+      "author": "Gunnar97",
+      "labels": [
+        "maintenance"
+      ],
+      "created_at": "2024-12-09T14:59:24+00:00",
+      "merged_at": "2024-12-19T17:37:55+00:00"
+    },
+    {
+      "url": "https://github.com/prebid/Prebid.js/pull/12554",
+      "number": 12554,
+      "title": "ResponsiveAds Bid Adapter : Initial commit",
+      "author": "pzagor2",
+      "labels": [
+        "feature"
+      ],
+      "created_at": "2024-12-06T06:13:47+00:00",
+      "merged_at": "2024-12-16T12:43:58+00:00"
+    },
+    {
+      "url": "https://github.com/prebid/Prebid.js/pull/12553",
+      "number": 12553,
+      "title": "Adnuntius Bid Adapter: add screen and viewport dimensions to ad request",
+      "author": "antosarho",
+      "labels": [
+        "maintenance"
+      ],
+      "created_at": "2024-12-06T05:50:43+00:00",
+      "merged_at": "2024-12-16T18:10:14+00:00"
+    },
+    {
+      "url": "https://github.com/prebid/Prebid.js/pull/12549",
+      "number": 12549,
+      "title": "Bridgeupp Bidder Adapter : initial release",
+      "author": "sharon-bridgeupp",
+      "labels": [
+        "feature"
+      ],
+      "created_at": "2024-12-05T15:56:53+00:00",
+      "merged_at": "2024-12-16T13:29:55+00:00"
+    },
+    {
+      "url": "https://github.com/prebid/Prebid.js/pull/12545",
+      "number": 12545,
+      "title": "Lasso Bid Adapter : add npi support",
+      "author": "victorlassomarketing",
+      "labels": [
+        "maintenance"
+      ],
+      "created_at": "2024-12-04T23:34:37+00:00",
+      "merged_at": "2024-12-13T16:04:49+00:00"
+    },
+    {
+      "url": "https://github.com/prebid/Prebid.js/pull/12538",
+      "number": 12538,
+      "title": "AdGeneration Bid Adapter : change endpoint and add ortb converter",
+      "author": "ss-toshihide-tajima",
+      "labels": [
+        "maintenance"
+      ],
+      "created_at": "2024-12-04T11:52:26+00:00",
+      "merged_at": "2024-12-16T20:57:37+00:00"
+    },
+    {
+      "url": "https://github.com/prebid/Prebid.js/pull/12529",
+      "number": 12529,
+      "title": "33across ID System: Include hashed email from storage",
+      "author": "carlosfelix",
+      "labels": [
+        "maintenance"
+      ],
+      "created_at": "2024-12-02T19:22:41+00:00",
+      "merged_at": "2024-12-18T18:54:24+00:00"
+    },
+    {
+      "url": "https://github.com/prebid/Prebid.js/pull/12525",
+      "number": 12525,
+      "title": "Rediads Bid Adapter : initial release",
+      "author": "rediads",
+      "labels": [
+        "feature"
+      ],
+      "created_at": "2024-11-30T14:47:08+00:00",
+      "merged_at": "2024-12-17T16:22:51+00:00"
+    },
+    {
+      "url": "https://github.com/prebid/Prebid.js/pull/12510",
+      "number": 12510,
+      "title": "Greenbids Bidder Adapter",
+      "author": "jeremy-greenbids",
+      "labels": [
+        "feature"
+      ],
+      "created_at": "2024-11-27T10:13:44+00:00",
+      "merged_at": "2024-12-17T20:19:59+00:00"
+    }
+  ],
+  "last_processed": 12510,
+  "total_processed": 20,
+  "timestamp": "2025-07-21T07:28:46.271027"
+}

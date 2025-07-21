@@ -5,10 +5,10 @@ Base PR Fetcher interface and abstract implementation.
 from abc import ABC, abstractmethod
 from typing import Any
 
-from github import Github, RateLimitExceededException
+from github import Github
 from loguru import logger
 
-from src.pr_agents.utilities.rate_limit_manager import RateLimitManager
+from src.pr_agents.utilities.rate_limit_manager import RateLimitManager, RequestPriority
 
 
 class BasePRFetcher(ABC):
@@ -76,26 +76,28 @@ class BasePRFetcher(ABC):
             "state": pr.state,
         }
 
-    def _execute_with_rate_limit(self, func, *args, **kwargs):
+    def _execute_with_rate_limit(
+        self,
+        func,
+        *args,
+        priority: RequestPriority = RequestPriority.NORMAL,
+        resource: str = "core",
+        **kwargs,
+    ):
         """
         Execute a function with rate limit handling.
 
         Args:
             func: The function to execute
             *args: Positional arguments for the function
+            priority: Request priority level
+            resource: API resource being used
             **kwargs: Keyword arguments for the function
 
         Returns:
             The result of the function call
         """
-        # Check rate limit before making the call
-        self.rate_limit_manager.wait_if_needed()
-
-        try:
-            result = func(*args, **kwargs)
-            self.rate_limit_manager.track_request()
-            return result
-        except RateLimitExceededException as e:
-            self.rate_limit_manager.handle_rate_limit_exception(e)
-            # Retry after waiting
-            return func(*args, **kwargs)
+        # Use the new execute_with_retry method for automatic retries
+        return self.rate_limit_manager.execute_with_retry(
+            func, *args, resource=resource, priority=priority, **kwargs
+        )

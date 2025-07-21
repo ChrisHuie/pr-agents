@@ -6,6 +6,7 @@ from typing import Any
 
 import google.generativeai as genai
 from google.generativeai.types import GenerationConfig
+from loguru import logger
 
 from src.pr_agents.services.ai.providers.base import BaseLLMProvider, LLMResponse
 
@@ -13,25 +14,84 @@ from src.pr_agents.services.ai.providers.base import BaseLLMProvider, LLMRespons
 class GeminiProvider(BaseLLMProvider):
     """Google Gemini API provider."""
 
+    # Preferred models in order of preference
+    PREFERRED_MODELS = [
+        "gemini-2.0-flash-exp",  # Latest 2.0 Flash experimental
+        "gemini-1.5-flash",  # Stable 1.5 Flash
+        "gemini-1.5-pro",  # 1.5 Pro for more complex tasks
+        "gemini-pro",  # Legacy (might be deprecated)
+    ]
+
     def __init__(
         self,
         api_key: str,
-        model_name: str = "gemini-pro",
+        model_name: str | None = None,
         **kwargs,
     ):
         """Initialize Gemini provider.
 
         Args:
             api_key: Google AI API key
-            model_name: Model to use (default: gemini-pro)
+            model_name: Model to use (default: auto-detect best available)
             **kwargs: Additional configuration
         """
         super().__init__(api_key, **kwargs)
-        self.model_name = model_name
 
         # Configure the API
         genai.configure(api_key=api_key)
+
+        # Get available models
+        self.available_models = self._get_available_models()
+
+        # Select model
+        if model_name:
+            # Validate requested model
+            if not self._is_model_available(model_name):
+                logger.warning(
+                    f"Requested model '{model_name}' not available. Available models: {self.available_models}"
+                )
+                model_name = self._select_best_model()
+        else:
+            # Auto-select best available model
+            model_name = self._select_best_model()
+
+        self.model_name = model_name
+        logger.info(f"Using Gemini model: {self.model_name}")
         self.model = genai.GenerativeModel(model_name)
+
+    def _get_available_models(self) -> list[str]:
+        """Get list of available Gemini models."""
+        try:
+            models = []
+            for model in genai.list_models():
+                # Only include models that support generateContent
+                if "generateContent" in model.supported_generation_methods:
+                    models.append(model.name.replace("models/", ""))
+            return models
+        except Exception as e:
+            logger.error(f"Failed to list Gemini models: {e}")
+            # Return default list if API call fails
+            return ["gemini-1.5-flash", "gemini-1.5-pro"]
+
+    def _is_model_available(self, model_name: str) -> bool:
+        """Check if a model is available."""
+        # Handle both with and without "models/" prefix
+        clean_name = model_name.replace("models/", "")
+        return clean_name in self.available_models
+
+    def _select_best_model(self) -> str:
+        """Select the best available model from preferred list."""
+        for model in self.PREFERRED_MODELS:
+            if self._is_model_available(model):
+                return model
+
+        # If no preferred model is available, use first available
+        if self.available_models:
+            return self.available_models[0]
+
+        # Fallback to default
+        logger.warning("No models found via API, using fallback")
+        return "gemini-1.5-flash"
 
     async def generate(
         self,

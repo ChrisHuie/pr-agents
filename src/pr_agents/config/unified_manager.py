@@ -2,6 +2,7 @@
 Unified repository context manager that combines all context layers.
 """
 
+import time
 from pathlib import Path
 from typing import Any
 
@@ -16,8 +17,10 @@ from .context_models import (
     RepositoryKnowledge,
     UnifiedRepositoryContext,
 )
+from .context_tracker import ContextSource, ContextTracker
 from .knowledge_loader import RepositoryKnowledgeLoader
 from .manager import RepositoryStructureManager
+from .markdown_context_loader import MarkdownContextLoader
 
 
 class UnifiedRepositoryContextManager:
@@ -47,8 +50,32 @@ class UnifiedRepositoryContextManager:
         )
         self.knowledge_loader = RepositoryKnowledgeLoader(config_path)
         self.agent_context_loader = AgentContextLoader(config_path)
+        self.markdown_loader = MarkdownContextLoader(config_path)
+
+        # Initialize context tracker
+        self.context_tracker = ContextTracker()
 
         logger.info("Initialized UnifiedRepositoryContextManager")
+
+    def get_full_context_for_pr(
+        self, pr_url: str, repo_url: str
+    ) -> UnifiedRepositoryContext:
+        """
+        Get complete repository context combining all layers with tracking.
+
+        Args:
+            pr_url: PR URL for tracking
+            repo_url: Repository URL
+
+        Returns:
+            Unified repository context
+        """
+        # Start tracking for this PR
+        repo_name = self._extract_repo_name(repo_url)
+        self.context_tracker.start_pr_tracking(pr_url, repo_name)
+
+        # Load context with tracking
+        return self._load_full_context_with_tracking(pr_url, repo_url)
 
     def get_full_context(self, repo_url: str) -> UnifiedRepositoryContext:
         """
@@ -97,6 +124,15 @@ class UnifiedRepositoryContextManager:
         except Exception as e:
             logger.warning(f"Could not load agent context for {repo_name}: {e}")
 
+        # Load markdown context
+        try:
+            markdown_content = self.markdown_loader.load_markdown_context(repo_name)
+            if markdown_content:
+                context.markdown_context = markdown_content
+                logger.debug(f"Loaded markdown context for {repo_name}")
+        except Exception as e:
+            logger.warning(f"Could not load markdown context for {repo_name}: {e}")
+
         # Detect primary language
         if structure:
             context.primary_language = self._detect_primary_language(structure)
@@ -107,17 +143,23 @@ class UnifiedRepositoryContextManager:
 
         return context
 
-    def get_context_for_ai(self, repo_url: str) -> dict[str, Any]:
+    def get_context_for_ai(
+        self, repo_url: str, pr_url: str | None = None
+    ) -> dict[str, Any]:
         """
         Get repository context optimized for AI processing.
 
         Args:
             repo_url: Repository URL
+            pr_url: Optional PR URL for tracking
 
         Returns:
             AI-optimized context dictionary
         """
-        full_context = self.get_full_context(repo_url)
+        if pr_url:
+            full_context = self.get_full_context_for_pr(pr_url, repo_url)
+        else:
+            full_context = self.get_full_context(repo_url)
 
         # Build AI-friendly context
         ai_context = {
@@ -166,6 +208,10 @@ class UnifiedRepositoryContextManager:
         if full_context.knowledge.code_patterns:
             ai_context["code_patterns"] = full_context.knowledge.code_patterns
 
+        # Add markdown context if available
+        if full_context.markdown_context:
+            ai_context["markdown_context"] = full_context.markdown_context
+
         return ai_context
 
     def get_pr_review_context(self, repo_url: str) -> dict[str, Any]:
@@ -198,35 +244,34 @@ class UnifiedRepositoryContextManager:
         """Parse knowledge dictionary into RepositoryKnowledge object."""
         knowledge = RepositoryKnowledge()
 
-        # Extract repository context
-        if "repository_context" in knowledge_dict:
-            ctx = knowledge_dict["repository_context"]
-            knowledge.purpose = ctx.get("purpose", "")
-            knowledge.key_features = ctx.get("key_features", [])
-            knowledge.architecture = ctx.get("architecture", {})
+        # Extract basic repository information from JSON config
+        if "description" in knowledge_dict:
+            knowledge.purpose = knowledge_dict["description"]
 
-        # Extract overview (alternative format)
-        elif "overview" in knowledge_dict:
-            overview = knowledge_dict["overview"]
-            knowledge.purpose = overview.get("purpose", "")
-            knowledge.key_features = overview.get("key_features", [])
-            knowledge.architecture = overview.get("architecture", {})
+        # Extract module information as key features
+        if "module_categories" in knowledge_dict:
+            module_types = list(knowledge_dict["module_categories"].keys())
+            knowledge.key_features = [
+                f"Supports {module_type.replace('_', ' ')}"
+                for module_type in module_types
+            ]
 
-        # Extract patterns
-        if "code_patterns" in knowledge_dict:
-            knowledge.code_patterns = knowledge_dict["code_patterns"]
-        elif "patterns" in knowledge_dict:
-            knowledge.code_patterns = knowledge_dict["patterns"]
+        # Build architecture overview from module categories
+        if "module_categories" in knowledge_dict:
+            knowledge.architecture = {
+                "module_types": knowledge_dict["module_categories"],
+                "detection_strategy": knowledge_dict.get("detection_strategy", ""),
+                "fetch_strategy": knowledge_dict.get("fetch_strategy", ""),
+            }
 
-        # Extract testing requirements
-        if "testing_requirements" in knowledge_dict:
-            knowledge.testing_requirements = knowledge_dict["testing_requirements"]
-        elif "testing" in knowledge_dict:
-            knowledge.testing_requirements = knowledge_dict["testing"]
+        # Extract version-specific patterns
+        if "version_overrides" in knowledge_dict:
+            knowledge.code_patterns = {
+                "version_specific": knowledge_dict["version_overrides"]
+            }
 
-        # Extract code examples
-        if "code_examples" in knowledge_dict:
-            knowledge.code_examples = knowledge_dict["code_examples"]
+        # Store the full config for other uses
+        knowledge.code_examples = knowledge_dict
 
         return knowledge
 
@@ -298,3 +343,199 @@ class UnifiedRepositoryContextManager:
         }
 
         return type_language_map.get(structure.repo_type, "Unknown")
+
+    def _load_full_context_with_tracking(
+        self, pr_url: str, repo_url: str
+    ) -> UnifiedRepositoryContext:
+        """
+        Load context with detailed tracking.
+
+        Args:
+            pr_url: PR URL for tracking
+            repo_url: Repository URL
+
+        Returns:
+            Unified repository context
+        """
+        # Check cache first
+        if self.cache_contexts and repo_url in self._context_cache:
+            logger.debug(f"Returning cached context for {repo_url}")
+            self.context_tracker.record_context_usage(
+                pr_url=pr_url,
+                context_name="unified_context",
+                source=ContextSource.CACHED,
+                loaded=True,
+                is_default=False,
+                metadata={"repo_url": repo_url},
+            )
+            return self._context_cache[repo_url]
+
+        # Extract repository name
+        repo_name = self._extract_repo_name(repo_url)
+
+        # Create unified context
+        context = UnifiedRepositoryContext(repo_name=repo_name, repo_url=repo_url)
+
+        # Load structure with tracking
+        start_time = time.time()
+        structure = self.structure_manager.get_repository(repo_url)
+        load_time = (time.time() - start_time) * 1000
+
+        if structure:
+            context.structure = structure
+            logger.debug(f"Loaded structure for {repo_name}")
+            self.context_tracker.record_context_usage(
+                pr_url=pr_url,
+                context_name="repository_structure",
+                source=ContextSource.JSON_CONFIG,
+                loaded=True,
+                is_default=False,
+                file_path=str(self.config_path / "repositories.json"),
+                load_time_ms=load_time,
+                metadata={"repo_type": structure.repo_type},
+            )
+        else:
+            logger.warning(f"No structure configuration found for {repo_name}")
+            self.context_tracker.record_context_usage(
+                pr_url=pr_url,
+                context_name="repository_structure",
+                source=ContextSource.JSON_CONFIG,
+                loaded=False,
+                error="Not found",
+                load_time_ms=load_time,
+            )
+
+        # Load knowledge with tracking
+        start_time = time.time()
+        try:
+            knowledge_dict = self.knowledge_loader.load_repository_config(repo_name)
+            load_time = (time.time() - start_time) * 1000
+
+            if knowledge_dict:
+                context.knowledge = self._parse_knowledge(knowledge_dict)
+                logger.debug(f"Loaded knowledge for {repo_name}")
+                self.context_tracker.record_context_usage(
+                    pr_url=pr_url,
+                    context_name="repository_knowledge",
+                    source=ContextSource.JSON_CONFIG,
+                    loaded=True,
+                    is_default=False,
+                    file_path=str(self.config_path / "prebid"),
+                    load_time_ms=load_time,
+                    size_bytes=len(str(knowledge_dict)),
+                )
+            else:
+                self.context_tracker.record_context_usage(
+                    pr_url=pr_url,
+                    context_name="repository_knowledge",
+                    source=ContextSource.JSON_CONFIG,
+                    loaded=False,
+                    error="Empty config",
+                    load_time_ms=load_time,
+                )
+        except Exception as e:
+            load_time = (time.time() - start_time) * 1000
+            logger.warning(f"Could not load knowledge for {repo_name}: {e}")
+            self.context_tracker.record_context_usage(
+                pr_url=pr_url,
+                context_name="repository_knowledge",
+                source=ContextSource.JSON_CONFIG,
+                loaded=False,
+                error=str(e),
+                load_time_ms=load_time,
+            )
+
+        # Load agent context with tracking
+        start_time = time.time()
+        try:
+            agent_dict = self.agent_context_loader.load_agent_context(repo_name)
+            load_time = (time.time() - start_time) * 1000
+
+            # Check if using default
+            is_default = (
+                agent_dict == self.agent_context_loader._get_default_agent_context()
+            )
+
+            if agent_dict:
+                context.agent_context = self._parse_agent_context(agent_dict)
+                logger.debug(f"Loaded agent context for {repo_name}")
+                self.context_tracker.record_context_usage(
+                    pr_url=pr_url,
+                    context_name="agent_context",
+                    source=(
+                        ContextSource.DEFAULT
+                        if is_default
+                        else ContextSource.AGENT_CONTEXT
+                    ),
+                    loaded=True,
+                    is_default=is_default,
+                    file_path=(
+                        None if is_default else str(self.config_path / "agent-contexts")
+                    ),
+                    load_time_ms=load_time,
+                    size_bytes=len(str(agent_dict)),
+                )
+        except Exception as e:
+            load_time = (time.time() - start_time) * 1000
+            logger.warning(f"Could not load agent context for {repo_name}: {e}")
+            self.context_tracker.record_context_usage(
+                pr_url=pr_url,
+                context_name="agent_context",
+                source=ContextSource.AGENT_CONTEXT,
+                loaded=False,
+                error=str(e),
+                load_time_ms=load_time,
+            )
+
+        # Load markdown context with tracking
+        start_time = time.time()
+        try:
+            markdown_content = self.markdown_loader.load_markdown_context(repo_name)
+            load_time = (time.time() - start_time) * 1000
+
+            if markdown_content:
+                context.markdown_context = markdown_content
+                logger.debug(f"Loaded markdown context for {repo_name}")
+                self.context_tracker.record_context_usage(
+                    pr_url=pr_url,
+                    context_name="markdown_context",
+                    source=ContextSource.MARKDOWN,
+                    loaded=True,
+                    is_default=False,
+                    file_path=str(self.config_path / "prebid-context"),
+                    load_time_ms=load_time,
+                    size_bytes=len(markdown_content.encode("utf-8")),
+                )
+            else:
+                self.context_tracker.record_context_usage(
+                    pr_url=pr_url,
+                    context_name="markdown_context",
+                    source=ContextSource.MARKDOWN,
+                    loaded=False,
+                    error="Not found",
+                    load_time_ms=load_time,
+                )
+        except Exception as e:
+            load_time = (time.time() - start_time) * 1000
+            logger.warning(f"Could not load markdown context for {repo_name}: {e}")
+            self.context_tracker.record_context_usage(
+                pr_url=pr_url,
+                context_name="markdown_context",
+                source=ContextSource.MARKDOWN,
+                loaded=False,
+                error=str(e),
+                load_time_ms=load_time,
+            )
+
+        # Detect primary language
+        if structure:
+            context.primary_language = self._detect_primary_language(structure)
+
+        # Cache if enabled
+        if self.cache_contexts:
+            self._context_cache[repo_url] = context
+
+        # Log summary
+        self.context_tracker.log_summary(pr_url)
+
+        return context

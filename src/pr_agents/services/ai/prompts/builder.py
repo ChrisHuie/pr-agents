@@ -8,6 +8,7 @@ from src.pr_agents.services.ai.prompts.templates import (
     EXECUTIVE_TEMPLATE,
     PRODUCT_TEMPLATE,
     REVIEWER_TEMPLATE,
+    TECHNICAL_WRITER_TEMPLATE,
 )
 
 
@@ -21,6 +22,7 @@ class PromptBuilder:
             "product": PRODUCT_TEMPLATE,
             "developer": DEVELOPER_TEMPLATE,
             "reviewer": REVIEWER_TEMPLATE,
+            "technical_writer": TECHNICAL_WRITER_TEMPLATE,
         }
 
     def build_prompt(
@@ -56,10 +58,21 @@ class PromptBuilder:
             persona, code_changes, repo_context, pr_metadata
         )
 
+        # Build context prefix from markdown and agent context
+        context_parts = []
+
+        # Add markdown context if available in repo_context
+        if "markdown_context" in repo_context and repo_context["markdown_context"]:
+            context_parts.append(repo_context["markdown_context"])
+
         # Add agent context if provided
         if agent_context:
-            # Prepend agent context to the prompt
-            prompt = f"{agent_context}\n\n---\n\n{template.format(**template_vars)}"
+            context_parts.append(agent_context)
+
+        # Combine contexts and template
+        if context_parts:
+            context_prefix = "\n\n---\n\n".join(context_parts)
+            prompt = f"{context_prefix}\n\n---\n\n{template.format(**template_vars)}"
         else:
             prompt = template.format(**template_vars)
 
@@ -118,6 +131,8 @@ class PromptBuilder:
             vars_dict["full_diff_analysis"] = self._build_developer_diff_analysis(
                 code_changes
             )
+        elif persona == "technical_writer":
+            vars_dict["changes_summary"] = self._build_executive_summary(code_changes)
 
         return vars_dict
 

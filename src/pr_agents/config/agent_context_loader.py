@@ -22,9 +22,6 @@ class AgentContextLoader:
         self.config_dir = Path(config_dir)
         self.agent_context_dir = self.config_dir / "agent-contexts"
 
-        # Create directory if it doesn't exist
-        self.agent_context_dir.mkdir(parents=True, exist_ok=True)
-
     def load_agent_context(self, repo_full_name: str) -> dict[str, Any]:
         """
         Load agent-specific context for a repository.

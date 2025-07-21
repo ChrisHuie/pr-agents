@@ -55,6 +55,18 @@ class AIConfig:
                     min_length=100,
                     max_length=400,
                 ),
+                "reviewer": PersonaConfig(
+                    max_tokens=400,
+                    temperature=0.4,
+                    min_length=80,
+                    max_length=300,
+                ),
+                "technical_writer": PersonaConfig(
+                    max_tokens=350,
+                    temperature=0.3,
+                    min_length=60,
+                    max_length=250,
+                ),
             }
 
     @classmethod

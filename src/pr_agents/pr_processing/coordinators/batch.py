@@ -8,6 +8,8 @@ from typing import Any
 from github import Github
 from loguru import logger
 
+from ...utilities.rate_limit_manager import RateLimitManager
+from ..fetchers.paginated import PaginatedPRFetcher
 from ..pr_fetcher import PRFetcher
 from .base import BaseCoordinator
 from .component_manager import ComponentManager
@@ -42,6 +44,17 @@ class BatchCoordinator(BaseCoordinator):
         self.component_manager = component_manager
         self.single_pr_coordinator = single_pr_coordinator
         self.pr_fetcher = PRFetcher(github_token)
+
+        # Initialize paginated fetcher for large batches
+        self.paginated_fetcher = PaginatedPRFetcher(
+            github_token,
+            per_page=50,
+            checkpoint_dir=".pr_agents_checkpoints",
+        )
+
+        # Initialize rate limit manager
+        self.rate_limit_manager = RateLimitManager()
+        self.rate_limit_manager.set_github_client(github_client)
 
     def coordinate(
         self,
@@ -96,13 +109,27 @@ class BatchCoordinator(BaseCoordinator):
                 logger.info("Started batch context for AI processing")
 
         # Analyze each PR
-        for pr_url in pr_urls:
+        for i, pr_url in enumerate(pr_urls):
             try:
-                logger.info(f"Analyzing: {pr_url}")
+                # Check rate limit before each PR
+                self.rate_limit_manager.wait_if_needed(
+                    resource="core", min_remaining=50
+                )
+
+                logger.info(f"Analyzing ({i+1}/{len(pr_urls)}): {pr_url}")
                 pr_results = self.single_pr_coordinator.coordinate(
                     pr_url, extract_components, run_processors
                 )
                 results[pr_url] = pr_results
+
+                # Track the request
+                self.rate_limit_manager.track_request("core")
+
+                # Apply adaptive delay between PRs
+                if i < len(pr_urls) - 1 and (i + 1) % 10 == 0:
+                    delay = 2.0  # Pause between every 10 PRs
+                    logger.debug(f"Pausing {delay}s between batches")
+                    time.sleep(delay)
 
             except Exception as e:
                 logger.error(f"Error analyzing {pr_url}: {e}")
@@ -144,7 +171,7 @@ class BatchCoordinator(BaseCoordinator):
         run_processors: list[str] | None = None,
     ) -> dict[str, Any]:
         """
-        Analyze all PRs in a specific release.
+        Analyze all PRs in a specific release with AI summaries.
 
         Args:
             repo_name: Repository name (owner/name format)
@@ -157,28 +184,65 @@ class BatchCoordinator(BaseCoordinator):
         """
         logger.info(f"🏷️ Analyzing PRs for release {release_tag} in {repo_name}")
 
-        # Fetch PRs for the release
-        prs = self.pr_fetcher.get_prs_by_release(repo_name, release_tag)
+        # Use paginated fetcher for proper GitHub API handling
+        checkpoint_file = f"{repo_name.replace('/', '_')}_{release_tag}.json"
+
+        # Fetch PRs with pagination
+        prs = self.paginated_fetcher.fetch_release_prs(
+            repo_name,
+            release_tag,
+            checkpoint_file,
+        )
 
         if not prs:
             logger.warning(f"No PRs found for release {release_tag}")
             return {
                 "release_tag": release_tag,
+                "repository": repo_name,
                 "pr_results": {},
                 "batch_summary": {"total_prs": 0},
             }
 
+        logger.info(f"Found {len(prs)} PRs in release {release_tag}")
+
         # Extract PR URLs
         pr_urls = [pr["url"] for pr in prs if "url" in pr]
 
-        # Run batch analysis
-        results = self.coordinate(pr_urls, extract_components, run_processors)
+        # Process in batches to avoid timeout
+        batch_size = 15  # Smaller batches for AI processing
+        all_results = {}
 
-        # Add release metadata
-        results["release_tag"] = release_tag
-        results["repository"] = repo_name
+        for i in range(0, len(pr_urls), batch_size):
+            batch_urls = pr_urls[i : i + batch_size]
+            logger.info(
+                f"Processing batch {i//batch_size + 1}/{(len(pr_urls) + batch_size - 1) // batch_size}"
+            )
 
-        return results
+            # Analyze batch
+            batch_results = self.coordinate(
+                batch_urls, extract_components, run_processors
+            )
+            all_results.update(batch_results.get("pr_results", {}))
+
+            # Brief pause between batches
+            if i + batch_size < len(pr_urls):
+                time.sleep(3)
+
+        # Simple summary
+        batch_summary = {
+            "total_prs": len(all_results),
+            "successful_analyses": sum(
+                1 for r in all_results.values() if not r.get("error")
+            ),
+            "failed_analyses": sum(1 for r in all_results.values() if r.get("error")),
+        }
+
+        return {
+            "release_tag": release_tag,
+            "repository": repo_name,
+            "pr_results": all_results,
+            "batch_summary": batch_summary,
+        }
 
     def analyze_unreleased_prs(
         self,

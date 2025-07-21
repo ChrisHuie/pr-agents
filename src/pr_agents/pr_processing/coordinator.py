@@ -84,7 +84,9 @@ class PRCoordinator:
                 from .processors.ai_processor import AIProcessor
 
                 # Initialize unified context manager
-                context_manager = UnifiedRepositoryContextManager(config_dir=config_dir)
+                context_manager = UnifiedRepositoryContextManager(
+                    config_path=config_dir
+                )
                 # Enable batch context for ADK
                 self.ai_service = ADKAIService(use_batch_context=True)
                 ai_processor = AIProcessor(self.ai_service, context_manager)
@@ -99,7 +101,9 @@ class PRCoordinator:
                 from .processors.ai_processor import AIProcessor
 
                 # Initialize unified context manager
-                context_manager = UnifiedRepositoryContextManager(config_dir=config_dir)
+                context_manager = UnifiedRepositoryContextManager(
+                    config_path=config_dir
+                )
                 self.ai_service = ClaudeADKService()
                 ai_processor = AIProcessor(self.ai_service, context_manager)
                 self.component_manager.register_processor("ai_summaries", ai_processor)
@@ -113,7 +117,9 @@ class PRCoordinator:
 
                 logger.info("Registering AI processor with unified context")
                 # Initialize unified context manager
-                context_manager = UnifiedRepositoryContextManager(config_dir=config_dir)
+                context_manager = UnifiedRepositoryContextManager(
+                    config_path=config_dir
+                )
                 self.ai_service = AIService()
                 ai_processor = AIProcessor(self.ai_service, context_manager)
                 self.component_manager.register_processor("ai_summaries", ai_processor)

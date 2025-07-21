@@ -74,6 +74,9 @@ class UnifiedRepositoryContext:
     # Agent-specific context
     agent_context: AgentContext = field(default_factory=AgentContext)
 
+    # Markdown context from prebid-context directory
+    markdown_context: str | None = None
+
     # Metadata
     repo_name: str = ""
     repo_url: str = ""
@@ -123,6 +126,9 @@ class UnifiedRepositoryContext:
                 "common_issues": self.agent_context.common_issues,
                 "module_relationships": self.agent_context.module_relationships,
             }
+
+        if self.markdown_context:
+            result["markdown_context"] = self.markdown_context
 
         return result
 

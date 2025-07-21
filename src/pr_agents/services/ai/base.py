@@ -93,3 +93,29 @@ class BaseAIService(ABC):
             Override in subclasses to support feedback.
         """
         pass
+
+    def start_batch(self, repo_url: str) -> None:
+        """Start batch processing for a repository.
+
+        This allows the AI service to optimize processing for multiple PRs
+        from the same repository by reusing context and caching.
+
+        Args:
+            repo_url: Repository URL for the batch
+
+        Note:
+            Default implementation does nothing.
+            Override in subclasses to support batch optimization.
+        """
+        pass
+
+    def end_batch(self) -> None:
+        """End batch processing.
+
+        Clears any batch-specific state or context.
+
+        Note:
+            Default implementation does nothing.
+            Override in subclasses to support batch optimization.
+        """
+        pass

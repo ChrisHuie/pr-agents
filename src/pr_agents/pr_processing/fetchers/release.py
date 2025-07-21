@@ -2,11 +2,14 @@
 Release-based PR fetcher implementation.
 """
 
+import time
 from datetime import datetime
 from typing import Any
 
 from github.Repository import Repository
 from loguru import logger
+
+from src.pr_agents.utilities.rate_limit_manager import RequestPriority
 
 from ...logging_config import log_api_call, log_processing_step
 from .base import BasePRFetcher
@@ -72,11 +75,15 @@ class ReleasePRFetcher(BasePRFetcher):
             log_processing_step(
                 f"Fetching PRs for release {release_tag} in {repo_name}"
             )
-            repo = self.github_client.get_repo(repo_name)
+            repo = self._execute_with_rate_limit(
+                self.github_client.get_repo, repo_name, priority=RequestPriority.HIGH
+            )
 
             # Get the release by tag
             log_api_call("get_release_by_tag", {"repo": repo_name, "tag": release_tag})
-            release = repo.get_release(release_tag)
+            release = self._execute_with_rate_limit(
+                repo.get_release, release_tag, priority=RequestPriority.HIGH
+            )
             release_date = release.created_at
 
             # Get previous release to establish date range
@@ -201,7 +208,11 @@ class ReleasePRFetcher(BasePRFetcher):
     ) -> datetime:
         """Get the date of the release before the given date."""
         try:
-            releases = list(repo.get_releases())
+            releases = list(
+                self._execute_with_rate_limit(
+                    repo.get_releases, priority=RequestPriority.NORMAL
+                )
+            )
 
             # Sort releases by date descending
             releases.sort(key=lambda r: r.created_at, reverse=True)
@@ -221,7 +232,9 @@ class ReleasePRFetcher(BasePRFetcher):
     def _get_latest_release_date(self, repo: Repository) -> datetime | None:
         """Get the date of the latest release."""
         try:
-            latest_release = repo.get_latest_release()
+            latest_release = self._execute_with_rate_limit(
+                repo.get_latest_release, priority=RequestPriority.NORMAL
+            )
             return latest_release.created_at
         except Exception:
             # No releases found
@@ -249,8 +262,27 @@ class ReleasePRFetcher(BasePRFetcher):
         )
 
         prs = []
-        for pr in self.github_client.search_issues(query=query):
+        # Get optimal batch size for current rate limit status
+        batch_size = self.rate_limit_manager.get_optimal_batch_size("search")
+
+        # Execute search with rate limiting
+        search_results = self._execute_with_rate_limit(
+            self.github_client.search_issues,
+            query=query,
+            resource="search",
+            priority=RequestPriority.HIGH,
+        )
+
+        # Process results in batches with adaptive delays
+        for i, pr in enumerate(search_results):
             prs.append(self._build_pr_data(pr))
+
+            # Add adaptive delay between batches
+            if (i + 1) % batch_size == 0:
+                delay = self.rate_limit_manager.get_adaptive_delay("search")
+                if delay > 0:
+                    logger.debug(f"Batch {i // batch_size + 1}: waiting {delay:.1f}s")
+                    time.sleep(delay)
 
         return prs
 
@@ -265,7 +297,26 @@ class ReleasePRFetcher(BasePRFetcher):
         log_api_call("search_all_merged_prs", {"repo": repo.full_name})
 
         prs = []
-        for pr in self.github_client.search_issues(query=query):
+        # Get optimal batch size for current rate limit status
+        batch_size = self.rate_limit_manager.get_optimal_batch_size("search")
+
+        # Execute search with rate limiting
+        search_results = self._execute_with_rate_limit(
+            self.github_client.search_issues,
+            query=query,
+            resource="search",
+            priority=RequestPriority.NORMAL,
+        )
+
+        # Process results in batches with adaptive delays
+        for i, pr in enumerate(search_results):
             prs.append(self._build_pr_data(pr))
+
+            # Add adaptive delay between batches
+            if (i + 1) % batch_size == 0:
+                delay = self.rate_limit_manager.get_adaptive_delay("search")
+                if delay > 0:
+                    logger.debug(f"Batch {i // batch_size + 1}: waiting {delay:.1f}s")
+                    time.sleep(delay)
 
         return prs

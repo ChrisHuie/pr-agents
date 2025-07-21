@@ -1,14 +1,35 @@
 """
-Markdown formatter for PR analysis output.
+Modular markdown formatter for PR analysis output.
 """
 
 from typing import Any
 
 from .base import BaseFormatter
+from .formatters.base import FormatterConfig
+from .formatters.sections import (
+    AISection,
+    CodeChangesSection,
+    HeaderSection,
+    LabelsSection,
+    MetadataSection,
+    MetricsSection,
+    ModulesSection,
+    RepositorySection,
+    ReviewsSection,
+)
 
 
 class MarkdownFormatter(BaseFormatter):
-    """Formats PR analysis results as Markdown."""
+    """Formats PR analysis results as Markdown with modular sections."""
+
+    def __init__(self, config: FormatterConfig | None = None):
+        """
+        Initialize formatter with optional configuration.
+
+        Args:
+            config: Formatter configuration for customizing output
+        """
+        self.config = config or FormatterConfig.default()
 
     def format(self, data: dict[str, Any]) -> str:
         """
@@ -22,426 +43,51 @@ class MarkdownFormatter(BaseFormatter):
         """
         # Check if this is batch results
         if "pr_results" in data and "batch_summary" in data:
+            # Check if we should use grouped format
+            if self._is_release_data(data) and self._should_use_grouped_format(data):
+                return self._format_grouped_release_results(data)
             return self._format_batch_results(data)
 
-        # Single PR analysis
+        # Single PR analysis - use modular sections
         lines = []
 
-        # Always add header
-        lines.append("# PR Analysis Report")
+        # Get formatting options
+        options = {
+            "compact": self.config.compact,
+            "personas": self.config.personas,
+            "include_metrics": self.config.include_metrics,
+        }
 
-        # Add PR URL if available
-        if "pr_url" in data:
-            lines.append(f"\n**Pull Request:** {data['pr_url']}")
+        # Define all available sections in priority order
+        sections = [
+            HeaderSection(),
+            ModulesSection(),
+            CodeChangesSection(),
+            LabelsSection(),
+            MetadataSection(),
+            AISection(),
+            ReviewsSection(),
+            RepositorySection(),
+            MetricsSection(),
+        ]
 
-        if "pr_number" in data:
-            lines.append(f"**PR Number:** #{data['pr_number']}")
+        # Sort by priority
+        sections.sort(key=lambda s: s.get_priority())
 
-        # Repository info
-        if "repository" in data:
-            repo_info = data["repository"]
-            if isinstance(repo_info, dict):
-                lines.append(f"**Repository:** {repo_info.get('full_name', 'Unknown')}")
-            else:
-                lines.append(f"**Repository:** {repo_info}")
+        # Apply each section if it has data and is enabled
+        for section in sections:
+            # Check if section is enabled in config
+            section_name = section.__class__.__name__.replace("Section", "").lower()
+            if self.config.sections and section_name not in self.config.sections:
+                continue
 
-        # Release info (if available)
-        if "release_version" in data:
-            lines.append(f"**Release:** {data['release_version']}")
-        else:
-            lines.append("**Release:** Unreleased")
-
-        lines.append("")  # Empty line
-
-        # Modules Section
-        if "modules" in data:
-            lines.extend(self._format_modules(data["modules"]))
-
-        # Files Changed and Statistics
-        if "code_changes" in data:
-            lines.extend(self._format_simplified_code_changes(data["code_changes"]))
-
-        # Labels
-        if "metadata" in data:
-            lines.extend(self._format_labels_only(data["metadata"]))
-
-        # AI Summaries Section (All Personas)
-        if "ai_summaries" in data:
-            lines.extend(self._format_ai_summaries(data["ai_summaries"]))
-
-        # Processing Metrics
-        if "processing_metrics" in data:
-            lines.extend(self._format_processing_metrics(data["processing_metrics"]))
+            # Apply section if it has data
+            if section.applies_to(data):
+                section_lines = section.format(data, options)
+                if section_lines:
+                    lines.extend(section_lines)
 
         return "\n".join(lines)
-
-    def _format_metadata(self, metadata: dict[str, Any]) -> list[str]:
-        """Format metadata section."""
-        lines = ["## 📋 Metadata Analysis", ""]
-
-        # Title and Description Quality
-        if "title_quality" in metadata:
-            quality = metadata["title_quality"]
-            lines.append(
-                f"### Title Quality: {quality.get('quality_level', 'Unknown')} ({quality.get('score', 0)}/100)"
-            )
-            if issues := quality.get("issues", []):
-                lines.append("**Issues:**")
-                for issue in issues:
-                    lines.append(f"- {issue}")
-            lines.append("")
-
-        if "description_quality" in metadata:
-            quality = metadata["description_quality"]
-            lines.append(
-                f"### Description Quality: {quality.get('quality_level', 'Unknown')} ({quality.get('score', 0)}/100)"
-            )
-            if issues := quality.get("issues", []):
-                lines.append("**Issues:**")
-                for issue in issues:
-                    lines.append(f"- {issue}")
-            lines.append("")
-
-        # Label Analysis
-        if "label_analysis" in metadata:
-            labels = metadata["label_analysis"]
-            lines.append(f"### Labels ({labels.get('total_count', 0)})")
-
-            if categorized := labels.get("categorized", {}):
-                for category, label_list in categorized.items():
-                    if label_list:
-                        lines.append(f"- **{category}:** {', '.join(label_list)}")
-
-            if uncategorized := labels.get("uncategorized", []):
-                lines.append(f"- **Other:** {', '.join(uncategorized)}")
-
-            lines.append("")
-
-        return lines
-
-    def _format_code_changes(self, code_changes: dict[str, Any]) -> list[str]:
-        """Format code changes section."""
-        lines = ["## 💻 Code Changes Analysis", ""]
-
-        # Change Statistics
-        if "change_stats" in code_changes:
-            stats = code_changes["change_stats"]
-            lines.append("### Change Statistics")
-            lines.append(f"- **Total Changes:** {stats.get('total_changes', 0)} lines")
-            lines.append(f"- **Additions:** +{stats.get('total_additions', 0)}")
-            lines.append(f"- **Deletions:** -{stats.get('total_deletions', 0)}")
-            lines.append(f"- **Files Changed:** {stats.get('changed_files', 0)}")
-            lines.append("")
-
-        # Risk Assessment
-        if "risk_assessment" in code_changes:
-            risk = code_changes["risk_assessment"]
-            lines.append(f"### Risk Level: {risk.get('risk_level', 'Unknown')}")
-            lines.append(f"**Risk Score:** {risk.get('risk_score', 0)} points")
-
-            if factors := risk.get("risk_factors", []):
-                lines.append("**Risk Factors:**")
-                for factor in factors:
-                    lines.append(f"- {factor}")
-            lines.append("")
-
-        # Pattern Analysis
-        if "pattern_analysis" in code_changes:
-            patterns = code_changes["pattern_analysis"]
-            if detected := patterns.get("detected_patterns", []):
-                lines.append("### Detected Patterns")
-                for pattern in detected:
-                    lines.append(f"- {pattern}")
-                lines.append("")
-
-        return lines
-
-    def _format_repository_info(self, repo_info: dict[str, Any]) -> list[str]:
-        """Format repository information section."""
-        lines = ["## 🏗️ Repository Analysis", ""]
-
-        # Repository Health
-        if "health_assessment" in repo_info:
-            health = repo_info["health_assessment"]
-            lines.append(
-                f"### Repository Health: {health.get('health_level', 'Unknown')} ({health.get('health_score', 0)}/70)"
-            )
-
-            if components := health.get("health_components", {}):
-                lines.append("**Health Components:**")
-                for component, score in components.items():
-                    lines.append(
-                        f"- {component.replace('_', ' ').title()}: {score} points"
-                    )
-            lines.append("")
-
-        # Language Analysis
-        if "language_analysis" in repo_info:
-            languages = repo_info["language_analysis"]
-            if primary := languages.get("primary_language"):
-                lines.append(f"### Primary Language: {primary}")
-
-            if all_langs := languages.get("languages", {}):
-                lines.append("**All Languages:**")
-                for lang, percentage in sorted(
-                    all_langs.items(), key=lambda x: x[1], reverse=True
-                ):
-                    lines.append(f"- {lang}: {percentage:.1f}%")
-                lines.append("")
-
-        return lines
-
-    def _format_reviews(self, reviews: dict[str, Any]) -> list[str]:
-        """Format reviews section."""
-        lines = ["## 👥 Review Analysis", ""]
-
-        # Review Summary
-        if "review_summary" in reviews:
-            summary = reviews["review_summary"]
-            lines.append("### Review Summary")
-            lines.append(f"- **Total Reviews:** {summary.get('total_reviews', 0)}")
-            lines.append(
-                f"- **Unique Reviewers:** {summary.get('unique_reviewers', 0)}"
-            )
-            lines.append(f"- **Total Comments:** {summary.get('total_comments', 0)}")
-
-            if approval := summary.get("approval_status"):
-                lines.append(f"- **Approval Status:** {approval}")
-            lines.append("")
-
-        # Review Timeline
-        if "review_timeline" in reviews:
-            timeline = reviews["review_timeline"]
-            if avg_time := timeline.get("average_response_time"):
-                lines.append(f"### Average Response Time: {avg_time}")
-
-            if first_review := timeline.get("first_review_time"):
-                lines.append(f"- **First Review:** {first_review}")
-
-            lines.append("")
-
-        return lines
-
-    def _format_modules(self, modules_data: dict[str, Any]) -> list[str]:
-        """Format modules section."""
-        lines = ["## 📦 Modules Analysis", ""]
-
-        # Handle the case where modules_data might be the processed result
-        if "modules" in modules_data:
-            modules = modules_data["modules"]
-            if isinstance(modules, list) and modules:
-                lines.append(f"### Modules Found ({len(modules)})")
-                for module in modules:
-                    if isinstance(module, dict):
-                        name = module.get("name", "Unknown")
-                        mod_type = module.get("type", "unknown")
-                        action = module.get("action", "")
-
-                        # Format based on available info
-                        if action and action != "modified":
-                            lines.append(f"- **{name}** ({mod_type}) - {action}")
-                        else:
-                            lines.append(f"- **{name}** ({mod_type})")
-                    else:
-                        lines.append(f"- {module}")
-                lines.append("")
-
-        # Show total modules if available
-        if "total_modules" in modules_data:
-            lines.append(f"**Total Modules:** {modules_data['total_modules']}")
-
-        # Show repository type if available
-        if "repository_type" in modules_data:
-            lines.append(f"**Repository Type:** {modules_data['repository_type']}")
-
-        # Show primary module type
-        if "primary_type" in modules_data:
-            lines.append(f"**Primary Module Type:** {modules_data['primary_type']}")
-
-        # Show changes summary if available
-        if "changes_summary" in modules_data:
-            lines.append(f"**Summary:** {modules_data['changes_summary']}")
-
-        # Show adapter changes for JS repos
-        if "adapter_changes" in modules_data:
-            lines.append("")
-            lines.append("### Adapter Changes")
-            for adapter_type, count in modules_data["adapter_changes"].items():
-                lines.append(f"- {adapter_type.replace('_', ' ').title()}: {count}")
-
-        # Show new adapters if any
-        if "new_adapters" in modules_data:
-            lines.append("")
-            lines.append("### New Adapters")
-            for adapter in modules_data["new_adapters"]:
-                lines.append(f"- **{adapter['name']}** ({adapter['type']})")
-
-        # Show important modules if any
-        if "important_modules" in modules_data:
-            lines.append("")
-            lines.append("### Important Module Changes")
-            for module in modules_data["important_modules"]:
-                lines.append(f"- {module}")
-
-        # Show bidder changes for server repos
-        if "bidder_changes" in modules_data:
-            lines.append("")
-            lines.append("### Bidder Changes")
-            for bidder in modules_data["bidder_changes"]:
-                lines.append(f"- **{bidder['name']}** - {bidder['action']}")
-
-        # Show component changes for mobile repos
-        if "component_changes" in modules_data:
-            lines.append("")
-            lines.append("### Component Changes")
-            for component, count in modules_data["component_changes"].items():
-                if count > 0:
-                    lines.append(f"- {component.title()}: {count}")
-
-        lines.append("")
-        return lines
-
-    def _format_ai_summaries(self, ai_summaries: dict[str, Any]) -> list[str]:
-        """Format AI-generated summaries section."""
-        lines = ["## 🤖 AI-Generated Summaries", ""]
-
-        # Executive Summary
-        if "executive_summary" in ai_summaries:
-            exec_summary = ai_summaries["executive_summary"]
-            summary_text = exec_summary.get("summary", "No summary available")
-            if summary_text != "[Not requested]":
-                lines.append("### Executive Summary")
-                lines.append(f"{summary_text}")
-                lines.append("")
-
-        # Product Manager Summary
-        if "product_summary" in ai_summaries:
-            product_summary = ai_summaries["product_summary"]
-            summary_text = product_summary.get("summary", "No summary available")
-            if summary_text != "[Not requested]":
-                lines.append("### Product Manager Summary")
-                lines.append(f"{summary_text}")
-                lines.append("")
-
-        # Developer Summary
-        if "developer_summary" in ai_summaries:
-            dev_summary = ai_summaries["developer_summary"]
-            summary_text = dev_summary.get("summary", "No summary available")
-            if summary_text != "[Not requested]":
-                lines.append("### Technical Developer Summary")
-                lines.append(f"{summary_text}")
-                lines.append("")
-
-        # Code Review
-        if "reviewer_summary" in ai_summaries:
-            reviewer_summary = ai_summaries["reviewer_summary"]
-            summary_text = reviewer_summary.get("summary", "No summary available")
-            if summary_text != "[Not requested]":
-                lines.append("### Code Review")
-                lines.append(f"{summary_text}")
-                lines.append("")
-
-        # Summary Metadata
-        lines.append("### Summary Generation Details")
-        lines.append(f"- **Model Used:** {ai_summaries.get('model_used', 'Unknown')}")
-        lines.append(
-            f"- **Generated At:** {ai_summaries.get('generation_timestamp', 'Unknown')}"
-        )
-        lines.append(
-            f"- **From Cache:** {'Yes' if ai_summaries.get('cached', False) else 'No'}"
-        )
-
-        if "total_tokens" in ai_summaries and ai_summaries["total_tokens"] > 0:
-            lines.append(f"- **Total Tokens:** {ai_summaries['total_tokens']}")
-
-        if "generation_time_ms" in ai_summaries:
-            lines.append(
-                f"- **Generation Time:** {ai_summaries['generation_time_ms']}ms"
-            )
-
-        lines.append("")
-        return lines
-
-    def _format_processing_metrics(self, metrics: dict[str, Any]) -> list[str]:
-        """Format processing metrics section."""
-        lines = ["## ⚡ Processing Metrics", ""]
-
-        if "total_duration" in metrics:
-            lines.append(f"**Total Processing Time:** {metrics['total_duration']:.2f}s")
-
-        if "component_durations" in metrics:
-            lines.append("**Component Processing Times:**")
-            for component, duration in metrics["component_durations"].items():
-                lines.append(f"- {component}: {duration:.3f}s")
-
-        lines.append("")
-        return lines
-
-    def _format_simplified_code_changes(
-        self, code_changes: dict[str, Any]
-    ) -> list[str]:
-        """Format simplified code changes section with only files and statistics."""
-        lines = ["## 💻 Files Changed", ""]
-
-        # Get file count and stats
-        stats = code_changes.get("change_stats", {})
-        file_count = stats.get("changed_files", 0)
-
-        # Change Statistics
-        if stats:
-            lines.append("### Change Statistics")
-            lines.append(f"- **Total Changes:** {stats.get('total_changes', 0)} lines")
-            lines.append(f"- **Additions:** +{stats.get('total_additions', 0)}")
-            lines.append(f"- **Deletions:** -{stats.get('total_deletions', 0)}")
-            lines.append(f"- **Files Changed:** {file_count}")
-            lines.append("")
-
-        # List of files changed
-        if "file_analysis" in code_changes:
-            file_analysis = code_changes["file_analysis"]
-
-            # Show actual files if available
-            if "changed_files" in file_analysis and file_analysis["changed_files"]:
-                lines.append("### Files")
-                for file_path in file_analysis["changed_files"]:
-                    lines.append(f"- `{file_path}`")
-                lines.append("")
-
-            # File Type Breakdown
-            if "file_types" in file_analysis and file_analysis["file_types"]:
-                lines.append("### File Types")
-                for file_type, count in file_analysis["file_types"].items():
-                    lines.append(
-                        f"- **{file_type}:** {count} file{'s' if count > 1 else ''}"
-                    )
-                lines.append("")
-
-        return lines
-
-    def _format_labels_only(self, metadata: dict[str, Any]) -> list[str]:
-        """Format labels section without quality metrics."""
-        lines = []
-
-        # Label Analysis
-        if "label_analysis" in metadata:
-            labels = metadata["label_analysis"]
-            lines.append(f"## 🏷️ Labels ({labels.get('total_count', 0)})")
-
-            if categorized := labels.get("categorized", {}):
-                for category, label_list in categorized.items():
-                    if label_list:
-                        lines.append(f"- **{category}:** {', '.join(label_list)}")
-
-            if uncategorized := labels.get("uncategorized", []):
-                lines.append(f"- **Other:** {', '.join(uncategorized)}")
-
-            lines.append("")
-
-        return lines
-
-    def get_file_extension(self) -> str:
-        """Return markdown file extension."""
-        return ".md"
 
     def _format_batch_results(self, data: dict[str, Any]) -> str:
         """Format batch PR analysis results."""
@@ -488,7 +134,7 @@ class MarkdownFormatter(BaseFormatter):
 
                 formatted_pr = ResultFormatter.format_for_output(pr_result)
 
-                # Extract key information
+                # Extract key information using summary format
                 if "metadata" in formatted_pr:
                     lines.extend(
                         self._format_pr_summary_metadata(formatted_pr["metadata"])
@@ -566,13 +212,15 @@ class MarkdownFormatter(BaseFormatter):
         if "title_quality" in metadata:
             quality = metadata["title_quality"]
             lines.append(
-                f"**Title Quality:** {quality.get('quality_level', 'Unknown')} ({quality.get('score', 0)}/100)"
+                f"**Title Quality:** {quality.get('quality_level', 'Unknown')} "
+                f"({quality.get('score', 0)}/100)"
             )
 
         if "description_quality" in metadata:
             quality = metadata["description_quality"]
             lines.append(
-                f"**Description Quality:** {quality.get('quality_level', 'Unknown')} ({quality.get('score', 0)}/100)"
+                f"**Description Quality:** {quality.get('quality_level', 'Unknown')} "
+                f"({quality.get('score', 0)}/100)"
             )
 
         return lines
@@ -584,7 +232,8 @@ class MarkdownFormatter(BaseFormatter):
         if "change_stats" in code_changes:
             stats = code_changes["change_stats"]
             lines.append(
-                f"**Changes:** {stats.get('changed_files', 0)} files, +{stats.get('total_additions', 0)}/-{stats.get('total_deletions', 0)}"
+                f"**Changes:** {stats.get('changed_files', 0)} files, "
+                f"+{stats.get('total_additions', 0)}/-{stats.get('total_deletions', 0)}"
             )
 
         if "risk_assessment" in code_changes:
@@ -614,3 +263,232 @@ class MarkdownFormatter(BaseFormatter):
             lines.append(f"**Developer:** {dev_text}")
 
         return lines
+
+    def _is_release_data(self, data: dict[str, Any]) -> bool:
+        """Check if data is from release analysis."""
+        return (
+            "release_tag" in data
+            or "release_version" in data
+            or (
+                ("batch_summary" in data and "pr_results" in data)
+                and data.get("batch_summary", {}).get("total_prs", 0) > 1
+            )
+        )
+
+    def _should_use_grouped_format(self, data: dict[str, Any]) -> bool:
+        """Determine if grouped format should be used."""
+        # Use grouped format for release data with multiple PRs
+        if self._is_release_data(data):
+            pr_results = data.get("pr_results", {})
+            return len(pr_results) > 1
+        return False
+
+    def _format_grouped_release_results(self, data: dict[str, Any]) -> str:
+        """Format release results with PR grouping by tags."""
+        lines = []
+
+        # Header
+        release_tag = data.get("release_tag", data.get("release_version", "Unknown"))
+        lines.append(f"# Release {release_tag} Summary")
+        lines.append("")
+
+        # Repository info
+        if "repository" in data:
+            lines.append(f"**Repository:** {data['repository']}")
+
+        # PR count
+        batch_summary = data.get("batch_summary", {})
+        lines.append(f"**Total PRs:** {batch_summary.get('total_prs', 0)}")
+        lines.append("")
+
+        # Group PRs by tag
+        pr_groups = self._group_prs_by_tag(data.get("pr_results", {}))
+
+        # Display PRs by category
+        for tag in ["Feature", "Bug Fix", "Maintenance"]:
+            prs = pr_groups.get(tag, [])
+            if prs:
+                lines.append(f"## {tag}")
+                lines.append("")
+
+                for pr in prs:
+                    # Include PR number, title, and AI summaries
+                    lines.append(f"### PR #{pr['number']}: {pr['title']}")
+                    lines.append(f"**URL:** {pr['url']}")
+                    lines.append("")
+
+                    # Add AI summaries if available
+                    if pr.get("ai_summaries"):
+                        lines.append("#### AI Summaries")
+                        for persona, summary in pr["ai_summaries"].items():
+                            if summary and summary != "[Not requested]":
+                                persona_name = (
+                                    persona.replace("_summary", "")
+                                    .replace("_", " ")
+                                    .title()
+                                )
+                                lines.append(f"**{persona_name}:** {summary}")
+                        lines.append("")
+
+                    # Add basic metrics
+                    if pr.get("metrics"):
+                        lines.append(
+                            f"**Changes:** +{pr['metrics'].get('additions', 0)}/"
+                            f"-{pr['metrics'].get('deletions', 0)} in "
+                            f"{pr['metrics'].get('files_changed', 0)} files"
+                        )
+                        lines.append(
+                            f"**Risk Level:** {pr['metrics'].get('risk_level', 'Unknown')}"
+                        )
+                        lines.append("")
+
+                lines.append("")
+
+        # Summary statistics
+        lines.append("## Summary Statistics")
+        lines.append("")
+        lines.append(f"- **Total PRs:** {batch_summary.get('total_prs', 0)}")
+        lines.append(
+            f"- **Successful Analyses:** {batch_summary.get('successful_analyses', 0)}"
+        )
+        lines.append(
+            f"- **Failed Analyses:** {batch_summary.get('failed_analyses', 0)}"
+        )
+
+        # Category breakdown
+        lines.append("")
+        lines.append("### Breakdown by Category")
+        total_prs = batch_summary.get("total_prs", 0)
+        for tag in ["Feature", "Bug Fix", "Maintenance"]:
+            count = len(pr_groups.get(tag, []))
+            percentage = (count / total_prs * 100) if total_prs > 0 else 0
+            lines.append(f"- **{tag}:** {count} PRs ({percentage:.1f}%)")
+
+        return "\n".join(lines)
+
+    def _group_prs_by_tag(self, pr_results: dict[str, Any]) -> dict[str, list]:
+        """Group PRs by their tags (Feature, Bug Fix, Maintenance)."""
+        groups = {"Feature": [], "Bug Fix": [], "Maintenance": []}
+
+        for pr_url, pr_result in pr_results.items():
+            if pr_result.get("error"):
+                continue
+
+            # Process the PR result through ResultFormatter
+            from ..pr_processing.analysis import ResultFormatter
+
+            formatted_pr = ResultFormatter.format_for_output(pr_result)
+
+            # Extract PR metadata
+            pr_number = formatted_pr.get("pr_number", "unknown")
+            metadata = formatted_pr.get("metadata", {})
+
+            # Determine tag based on labels
+            tag = self._determine_pr_tag(metadata)
+
+            # Extract AI summaries
+            ai_summaries = {}
+            if "ai_summaries" in formatted_pr:
+                ai_data = formatted_pr["ai_summaries"]
+                if "executive_summary" in ai_data:
+                    ai_summaries["executive_summary"] = ai_data[
+                        "executive_summary"
+                    ].get("summary")
+                if "product_summary" in ai_data:
+                    ai_summaries["product_summary"] = ai_data["product_summary"].get(
+                        "summary"
+                    )
+                if "developer_summary" in ai_data:
+                    ai_summaries["developer_summary"] = ai_data[
+                        "developer_summary"
+                    ].get("summary")
+                if "reviewer_summary" in ai_data:
+                    ai_summaries["reviewer_summary"] = ai_data["reviewer_summary"].get(
+                        "summary"
+                    )
+                if "technical_writer_summary" in ai_data:
+                    ai_summaries["technical_writer_summary"] = ai_data[
+                        "technical_writer_summary"
+                    ].get("summary")
+
+            # Extract metrics
+            metrics = {}
+            if "code_changes" in formatted_pr:
+                code_data = formatted_pr["code_changes"]
+                if "change_stats" in code_data:
+                    stats = code_data["change_stats"]
+                    metrics["additions"] = stats.get("total_additions", 0)
+                    metrics["deletions"] = stats.get("total_deletions", 0)
+                    metrics["files_changed"] = stats.get("changed_files", 0)
+                if "risk_assessment" in code_data:
+                    metrics["risk_level"] = code_data["risk_assessment"].get(
+                        "risk_level", "Unknown"
+                    )
+
+            pr_info = {
+                "number": pr_number,
+                "title": metadata.get("label_analysis", {}).get("title", "No title"),
+                "url": pr_url,
+                "ai_summaries": ai_summaries,
+                "metrics": metrics,
+            }
+
+            groups[tag].append(pr_info)
+
+        # Sort PRs in each group by number
+        for tag in groups:
+            groups[tag].sort(
+                key=lambda x: int(x["number"]) if str(x["number"]).isdigit() else 0
+            )
+
+        return groups
+
+    def _determine_pr_tag(self, metadata: dict[str, Any]) -> str:
+        """Determine PR tag based on labels."""
+        label_analysis = metadata.get("label_analysis", {})
+        all_labels = []
+
+        # Collect all labels from categorized and uncategorized
+        categorized = label_analysis.get("categorized", {})
+        for category_labels in categorized.values():
+            all_labels.extend(category_labels)
+
+        uncategorized = label_analysis.get("uncategorized", [])
+        all_labels.extend(uncategorized)
+
+        # Convert to lowercase for matching
+        label_names = [label.lower() for label in all_labels]
+
+        # Check for feature-related labels
+        feature_labels = ["feature", "enhancement", "adapter"]
+        for label in label_names:
+            for feature_label in feature_labels:
+                if feature_label in label:
+                    return "Feature"
+
+        # Check for bug-related labels
+        bug_labels = ["bug", "fix", "security"]
+        for label in label_names:
+            for bug_label in bug_labels:
+                if bug_label in label:
+                    return "Bug Fix"
+
+        # Default to maintenance
+        return "Maintenance"
+
+    def get_file_extension(self) -> str:
+        """Return markdown file extension."""
+        return ".md"
+
+    def validate_data(self, data: dict[str, Any]) -> bool:
+        """
+        Validate that the data can be formatted.
+
+        Args:
+            data: PR analysis results dictionary
+
+        Returns:
+            True if data is valid for formatting
+        """
+        # Basic validation - ensure it's a dictionary
+        return isinstance(data, dict)

@@ -205,7 +205,7 @@ class RepoAnalysisResult:
 class PersonaSummary:
     """Summary for a specific persona."""
 
-    persona: str  # "executive", "product", "developer", "reviewer"
+    persona: str  # "executive", "product", "developer", "reviewer", "technical_writer"
     summary: str
     confidence: float
 
@@ -218,8 +218,11 @@ class AISummaries:
     product_summary: PersonaSummary
     developer_summary: PersonaSummary
     reviewer_summary: PersonaSummary
-    model_used: str
-    generation_timestamp: datetime
+    technical_writer_summary: PersonaSummary | None = (
+        None  # Optional for backward compatibility
+    )
+    model_used: str = ""
+    generation_timestamp: datetime = field(default_factory=datetime.now)
     cached: bool = False
     total_tokens: int = 0
     generation_time_ms: int = 0
